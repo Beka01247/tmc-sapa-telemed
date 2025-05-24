@@ -1,0 +1,126 @@
+import {
+  varchar,
+  pgTable,
+  pgEnum,
+  uuid,
+  timestamp,
+  text,
+  date,
+} from "drizzle-orm/pg-core";
+
+export const userTypeEnum = pgEnum("userType", ["DOCTOR", "NURSE", "PATIENT"]);
+export const doctorTypeEnum = pgEnum("doctorType", ["GENERAL", "SPECIALIST"]);
+export const measurementTypeEnum = pgEnum("measurementType", [
+  "blood-pressure",
+  "pulse",
+  "temperature",
+  "glucose",
+  "oximeter",
+  "spirometer",
+  "cholesterol",
+  "hemoglobin",
+  "triglycerides",
+  "weight",
+  "height",
+  "ultrasound",
+  "xray",
+  "inr",
+]);
+export const consultationStatusEnum = pgEnum("consultationStatus", [
+  "SCHEDULED",
+  "COMPLETED",
+  "CANCELLED",
+]);
+
+export const users = pgTable("users", {
+  id: uuid("id").notNull().primaryKey().defaultRandom(),
+  fullName: varchar("full_name", { length: 255 }).notNull(),
+  email: varchar("email", { length: 255 }).notNull().unique(),
+  password: varchar("password", { length: 255 }).notNull(),
+  city: varchar("city", { length: 255 }).notNull(),
+  organization: varchar("organization", { length: 255 }).notNull(),
+  subdivision: varchar("subdivision", { length: 255 }),
+  district: varchar("district", { length: 255 }),
+  userType: userTypeEnum("user_type").default("PATIENT"),
+  doctorType: doctorTypeEnum("doctor_type"),
+  department: varchar("department", { length: 255 }),
+  specialization: varchar("specialization", { length: 255 }),
+  avatar: varchar("avatar", { length: 255 }),
+  iin: varchar("iin", { length: 12 }).unique().notNull(),
+  telephone: varchar("telephone", { length: 20 }).notNull(),
+  dateOfBirth: date("date_of_birth"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
+export const measurements = pgTable("measurements", {
+  id: uuid("id").notNull().primaryKey().defaultRandom(),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  type: measurementTypeEnum("type").notNull(),
+  value1: varchar("value1", { length: 255 }).notNull(),
+  value2: varchar("value2", { length: 255 }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
+
+export const treatments = pgTable("treatments", {
+  id: uuid("id").notNull().primaryKey().defaultRandom(),
+  patientId: uuid("patient_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  providerId: uuid("provider_id").references(() => users.id, {
+    onDelete: "set null",
+  }),
+  medication: varchar("medication", { length: 255 }).notNull(),
+  dosage: varchar("dosage", { length: 255 }).notNull(),
+  frequency: varchar("frequency", { length: 255 }).notNull(),
+  duration: varchar("duration", { length: 255 }).notNull(),
+  notes: text("notes"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
+export const recommendations = pgTable("recommendations", {
+  id: uuid("id").notNull().primaryKey().defaultRandom(),
+  patientId: uuid("patient_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  providerId: uuid("provider_id").references(() => users.id, {
+    onDelete: "set null",
+  }),
+  description: text("description").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
+export const consultations = pgTable("consultations", {
+  id: uuid("id").notNull().primaryKey().defaultRandom(),
+  patientId: uuid("patient_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  providerId: uuid("provider_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  consultationDate: timestamp("consultation_date", {
+    withTimezone: true,
+  }).notNull(),
+  notes: text("notes"),
+  status: consultationStatusEnum("status").default("SCHEDULED"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
+export const files = pgTable("files", {
+  id: uuid("id").notNull().primaryKey().defaultRandom(),
+  patientId: uuid("patient_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  fileName: varchar("file_name", { length: 255 }).notNull(),
+  fileUrl: varchar("file_url", { length: 2048 }).notNull(),
+  description: text("description"),
+  uploadedBy: uuid("uploaded_by").references(() => users.id, {
+    onDelete: "set null",
+  }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+});

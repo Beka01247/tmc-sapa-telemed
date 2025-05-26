@@ -9,6 +9,8 @@ import {
   recommendations,
   files,
   measurements,
+  diagnoses,
+  riskGroups,
 } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { UserType } from "@/constants/userTypes";
@@ -60,10 +62,10 @@ async function fetchPatientData(
         data.map((consultation) => ({
           ...consultation,
           consultationDate: consultation.consultationDate.toISOString(),
-          // Default to SCHEDULED if status is null
           status: consultation.status ?? "SCHEDULED",
         }))
-      );
+      )
+      .catch(() => []);
 
     const treatmentsData = await db
       .select({
@@ -77,7 +79,8 @@ async function fetchPatientData(
       })
       .from(treatments)
       .leftJoin(users, eq(treatments.providerId, users.id))
-      .where(eq(treatments.patientId, patientId));
+      .where(eq(treatments.patientId, patientId))
+      .catch(() => []);
 
     const recommendationsData = await db
       .select({
@@ -95,7 +98,8 @@ async function fetchPatientData(
           createdAt:
             recommendation.createdAt?.toISOString() ?? new Date().toISOString(),
         }))
-      );
+      )
+      .catch(() => []);
 
     const filesData = await db
       .select({
@@ -107,14 +111,15 @@ async function fetchPatientData(
         createdAt: files.createdAt,
       })
       .from(files)
-      .leftJoin(users, eq(files.id, users.id))
+      .leftJoin(users, eq(files.uploadedBy, users.id))
       .where(eq(files.patientId, patientId))
       .then((data) =>
         data.map((file) => ({
           ...file,
           createdAt: file.createdAt?.toISOString() ?? new Date().toISOString(),
         }))
-      );
+      )
+      .catch(() => []);
 
     const measurementsData = await db
       .select({
@@ -132,10 +137,35 @@ async function fetchPatientData(
           createdAt:
             measurement.createdAt?.toISOString() ?? new Date().toISOString(),
         }))
-      );
+      )
+      .catch(() => []);
+
+    const diagnosesData = await db
+      .select({
+        id: diagnoses.id,
+        description: diagnoses.description,
+      })
+      .from(diagnoses)
+      .where(eq(diagnoses.userId, patientId))
+      .then((data) => data || []) // Ensure array
+      .catch(() => []);
+
+    const riskGroupsData = await db
+      .select({
+        id: riskGroups.id,
+        name: riskGroups.name,
+      })
+      .from(riskGroups)
+      .where(eq(riskGroups.userId, patientId))
+      .then((data) => data || []) // Ensure array
+      .catch(() => []);
 
     return {
-      patient,
+      patient: {
+        ...patient,
+        diagnoses: diagnosesData,
+        riskGroups: riskGroupsData,
+      },
       consultations: consultationsData,
       treatments: treatmentsData,
       recommendations: recommendationsData,

@@ -13,6 +13,19 @@ import { RecommendationsTab } from "./RecommendationsTab";
 import { FilesTab } from "./FilesTab";
 import { MonitoringTab } from "./MonitoringTab";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { EditDiagnosesModal } from "./EditDiagnosesModal";
+import { EditRiskGroupsModal } from "./EditRiskGroupsModal";
+import { toast } from "sonner";
+
+interface Diagnosis {
+  id: string;
+  description: string;
+}
+
+interface RiskGroup {
+  id: string;
+  name: string;
+}
 
 interface Patient {
   id: string;
@@ -23,6 +36,8 @@ interface Patient {
   city: string;
   organization: string;
   dateOfBirth: string | null;
+  diagnoses: Diagnosis[];
+  riskGroups: RiskGroup[];
 }
 
 interface Consultation {
@@ -117,11 +132,24 @@ export const PatientDetailsClient = ({
   >(null);
   const [isRecommendationModalOpen, setIsRecommendationModalOpen] =
     useState(false);
+  const [isDiagnosisModalOpen, setIsDiagnosisModalOpen] = useState(false);
+  const [isRiskGroupModalOpen, setIsRiskGroupModalOpen] = useState(false);
 
   const isProvider = ["DOCTOR", "NURSE"].includes(userType);
+  const isDoctor = userType === "DOCTOR";
 
   const handleGoBack = () => {
     router.push("/dashboard/patients");
+  };
+
+  const handleSaveDiagnoses = (updatedDiagnoses: Diagnosis[]) => {
+    initialData.patient.diagnoses = updatedDiagnoses;
+    toast.success("Диагнозы обновлены");
+  };
+
+  const handleSaveRiskGroups = (updatedRiskGroups: RiskGroup[]) => {
+    initialData.patient.riskGroups = updatedRiskGroups;
+    toast.success("Группы риска обновлены");
   };
 
   return (
@@ -138,7 +166,9 @@ export const PatientDetailsClient = ({
 
           <Card>
             <CardHeader>
-              <CardTitle>Информация о пациенте</CardTitle>
+              <CardTitle className="text-center">
+                Информация о пациенте
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
               <p>
@@ -151,6 +181,52 @@ export const PatientDetailsClient = ({
               <p>
                 <strong>ИИН:</strong> {initialData.patient.iin}
               </p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <strong>Группы риска:</strong>{" "}
+                  {initialData.patient.riskGroups?.length ? (
+                    <span>
+                      {initialData.patient.riskGroups
+                        .map((rg) => rg.name)
+                        .join(", ")}
+                    </span>
+                  ) : (
+                    <span className="text-gray-500">Нет групп риска</span>
+                  )}
+                </div>
+                {isDoctor && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsRiskGroupModalOpen(true)}
+                  >
+                    Изменить
+                  </Button>
+                )}
+              </div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <strong>Диагнозы:</strong>{" "}
+                  {initialData.patient.diagnoses?.length ? (
+                    <span>
+                      {initialData.patient.diagnoses
+                        .map((d) => d.description)
+                        .join(", ")}
+                    </span>
+                  ) : (
+                    <span className="text-gray-500">Нет диагнозов</span>
+                  )}
+                </div>
+                {isDoctor && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsDiagnosisModalOpen(true)}
+                  >
+                    Изменить
+                  </Button>
+                )}
+              </div>
               <p>
                 <strong>Email:</strong> {initialData.patient.email}
               </p>
@@ -232,6 +308,22 @@ export const PatientDetailsClient = ({
           {selectedTab === "monitoring" && (
             <MonitoringTab measurements={initialData.measurements} />
           )}
+
+          <EditDiagnosesModal
+            isOpen={isDiagnosisModalOpen}
+            onClose={() => setIsDiagnosisModalOpen(false)}
+            diagnoses={initialData.patient.diagnoses}
+            patientId={patientId}
+            onSave={handleSaveDiagnoses}
+          />
+
+          <EditRiskGroupsModal
+            isOpen={isRiskGroupModalOpen}
+            onClose={() => setIsRiskGroupModalOpen(false)}
+            riskGroups={initialData.patient.riskGroups}
+            patientId={patientId}
+            onSave={handleSaveRiskGroups}
+          />
         </div>
       </TooltipProvider>
     </DashboardLayout>
@@ -243,10 +335,8 @@ export const PatientDetailsPageWithErrorBoundary = (props: {
   userType: UserType;
   userName: string;
   patientId: string;
-}) => {
-  return (
-    <ErrorBoundary>
-      <PatientDetailsClient {...props} />
-    </ErrorBoundary>
-  );
-};
+}) => (
+  <ErrorBoundary>
+    <PatientDetailsClient {...props} />
+  </ErrorBoundary>
+);

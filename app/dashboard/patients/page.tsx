@@ -12,8 +12,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { db } from "@/db/drizzle";
-import { users, consultations } from "@/db/schema";
+import { users, consultations, diagnoses } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import Link from "next/link";
 
 interface Patient {
@@ -62,22 +63,32 @@ const PatientsPage = async () => {
         name: users.fullName,
         iin: users.iin,
         lastVisit: consultations.consultationDate,
+        diagnoses: sql`string_agg(${diagnoses.description}, ', ')`.as(
+          "diagnoses"
+        ),
       })
       .from(users)
       .leftJoin(consultations, eq(consultations.patientId, users.id))
+      .leftJoin(diagnoses, eq(diagnoses.userId, users.id))
       .where(
         and(
           eq(users.userType, "PATIENT"),
           eq(users.organization, session.user.organization),
           eq(users.city, session.user.city)
         )
+      )
+      .groupBy(
+        users.id,
+        users.fullName,
+        users.iin,
+        consultations.consultationDate
       );
 
     patients = patientRecords.map((record) => ({
       id: record.id,
       name: record.name,
       age: calculateAge(record.iin),
-      diagnosis: "Не указан",
+      diagnosis: record.diagnoses || "Нет диагнозов",
       lastVisit: record.lastVisit
         ? new Date(record.lastVisit).toLocaleDateString("ru-RU", {
             year: "numeric",

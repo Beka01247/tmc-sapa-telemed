@@ -15,7 +15,6 @@ const updateRecommendationSchema = recommendationSchema.partial().extend({
 
 export async function GET() {
   const session = await auth();
-  console.log("GET /recommendations session:", session);
   if (!session || !session.user?.id) {
     return NextResponse.json({ error: "Неавторизован" }, { status: 401 });
   }
@@ -32,7 +31,6 @@ export async function GET() {
       })
       .from(recommendations)
       .where(eq(recommendations.patientId, session.user.id));
-    console.log("GET /recommendations data:", data);
     return NextResponse.json(data);
   } catch (error) {
     console.error("GET /recommendations error:", error);
@@ -45,7 +43,6 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const session = await auth();
-  console.log("POST /recommendations session:", session);
   if (!session || !session.user?.id) {
     return NextResponse.json({ error: "Неавторизован" }, { status: 401 });
   }
@@ -64,7 +61,6 @@ export async function POST(request: Request) {
         updatedAt: new Date(),
       })
       .returning();
-    console.log("POST /recommendations created:", newRecommendation);
     return NextResponse.json(newRecommendation);
   } catch (error) {
     console.error("POST /recommendations error:", error);
@@ -83,7 +79,6 @@ export async function POST(request: Request) {
 
 export async function PUT(request: Request) {
   const session = await auth();
-  console.log("PUT /recommendations session:", session);
   if (!session || !session.user?.id) {
     return NextResponse.json({ error: "Неавторизован" }, { status: 401 });
   }
@@ -100,7 +95,6 @@ export async function PUT(request: Request) {
       })
       .where(eq(recommendations.id, validated.id))
       .returning();
-    console.log("PUT /recommendations updated:", updatedRecommendation);
     if (!updatedRecommendation) {
       return NextResponse.json(
         { error: "Рекомендация не найдена" },
@@ -125,7 +119,6 @@ export async function PUT(request: Request) {
 
 export async function DELETE(request: Request) {
   const session = await auth();
-  console.log("DELETE /recommendations session:", session);
   if (!session || !session.user?.id) {
     return NextResponse.json({ error: "Неавторизован" }, { status: 401 });
   }
@@ -140,7 +133,6 @@ export async function DELETE(request: Request) {
       .delete(recommendations)
       .where(eq(recommendations.id, id))
       .returning();
-    console.log("DELETE /recommendations deleted:", deletedRecommendation);
     if (!deletedRecommendation) {
       return NextResponse.json(
         { error: "Рекомендация не найдена" },

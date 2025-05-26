@@ -21,7 +21,6 @@ export const GET = async (
   { params }: { params: { id: string } }
 ) => {
   const session = await auth();
-  console.log("GET /patients/[id]/files session:", session);
   if (!session || !session.user?.id) {
     return NextResponse.json({ error: "Неавторизован" }, { status: 401 });
   }
@@ -59,7 +58,6 @@ export const GET = async (
         createdAt: item.createdAt.toISOString(),
       }))
     );
-    console.log("GET /patients/[id]/files data:", validated);
     return NextResponse.json(validated);
   } catch (error) {
     console.error("GET /patients/[id]/files error:", error);

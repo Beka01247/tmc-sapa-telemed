@@ -31,7 +31,8 @@ interface DashboardLayoutProps {
 const doctorNavItems: NavItem[] = [
   { title: "Пациенты", href: "/dashboard/patients" },
   { title: "Прием", href: "/dashboard/consultations" },
-  { title: "Расписание", href: "/dashboard/schedule" },
+  { title: "Мониторинг", href: "/dashboard/schedule" },
+  { title: "Обселодвание", href: "/dashboard/newroute2" },
 ];
 
 const nurseNavItems: NavItem[] = [

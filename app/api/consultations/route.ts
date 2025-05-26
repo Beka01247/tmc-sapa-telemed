@@ -24,7 +24,6 @@ const updateConsultationSchema = consultationSchema.partial().extend({
 
 export async function GET() {
   const session = await auth();
-  console.log("GET /consultations session:", session);
   if (!session || !session.user?.id) {
     return NextResponse.json({ error: "Неавторизован" }, { status: 401 });
   }
@@ -43,7 +42,6 @@ export async function GET() {
       })
       .from(consultations)
       .where(eq(consultations.patientId, session.user.id));
-    console.log("GET /consultations data:", data);
     return NextResponse.json(data);
   } catch (error) {
     console.error("GET /consultations error:", error);
@@ -56,7 +54,6 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const session = await auth();
-  console.log("POST /consultations session:", session);
   if (!session || !session.user?.id) {
     return NextResponse.json({ error: "Неавторизован" }, { status: 401 });
   }
@@ -77,7 +74,6 @@ export async function POST(request: Request) {
         updatedAt: new Date(),
       })
       .returning();
-    console.log("POST /consultations created:", newConsultation);
     return NextResponse.json(newConsultation);
   } catch (error) {
     console.error("POST /consultations error:", error);
@@ -96,7 +92,6 @@ export async function POST(request: Request) {
 
 export async function PUT(request: Request) {
   const session = await auth();
-  console.log("PUT /consultations session:", session);
   if (!session || !session.user?.id) {
     return NextResponse.json({ error: "Неавторизован" }, { status: 401 });
   }
@@ -118,7 +113,6 @@ export async function PUT(request: Request) {
       })
       .where(eq(consultations.id, validated.id))
       .returning();
-    console.log("PUT /consultations updated:", updatedConsultation);
     if (!updatedConsultation) {
       return NextResponse.json(
         { error: "Консультация не найдена" },
@@ -143,7 +137,6 @@ export async function PUT(request: Request) {
 
 export async function DELETE(request: Request) {
   const session = await auth();
-  console.log("DELETE /consultations session:", session);
   if (!session || !session.user?.id) {
     return NextResponse.json({ error: "Неавторизован" }, { status: 401 });
   }
@@ -158,7 +151,6 @@ export async function DELETE(request: Request) {
       .delete(consultations)
       .where(eq(consultations.id, id))
       .returning();
-    console.log("DELETE /consultations deleted:", deletedConsultation);
     if (!deletedConsultation) {
       return NextResponse.json(
         { error: "Консультация не найдена" },

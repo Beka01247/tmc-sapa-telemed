@@ -65,8 +65,8 @@ const AuthForm = <T extends FieldValues>({
     if (result.success) {
       toast.success("Success", {
         description: isSignIn
-          ? "You have successfully signed in"
-          : "You have successfully signed up",
+          ? "Вы успешно зашли в аккаунт"
+          : "Вы успешно зарегестрировались",
       });
       router.push("/dashboard");
     } else if (result.error) {

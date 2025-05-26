@@ -19,7 +19,6 @@ const updateTreatmentSchema = treatmentSchema.partial().extend({
 
 export async function GET() {
   const session = await auth();
-  console.log("GET /treatments session:", session);
   if (!session || !session.user?.id) {
     return NextResponse.json({ error: "Неавторизован" }, { status: 401 });
   }
@@ -40,7 +39,6 @@ export async function GET() {
       })
       .from(treatments)
       .where(eq(treatments.patientId, session.user.id));
-    console.log("GET /treatments data:", data);
     return NextResponse.json(data);
   } catch (error) {
     console.error("GET /treatments error:", error);
@@ -53,7 +51,6 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const session = await auth();
-  console.log("POST /treatments session:", session);
   if (!session || !session.user?.id) {
     return NextResponse.json({ error: "Неавторизован" }, { status: 401 });
   }
@@ -76,7 +73,6 @@ export async function POST(request: Request) {
         updatedAt: new Date(),
       })
       .returning();
-    console.log("POST /treatments created:", newTreatment);
     return NextResponse.json(newTreatment);
   } catch (error) {
     console.error("POST /treatments error:", error);
@@ -95,7 +91,6 @@ export async function POST(request: Request) {
 
 export async function PUT(request: Request) {
   const session = await auth();
-  console.log("PUT /treatments session:", session);
   if (!session || !session.user?.id) {
     return NextResponse.json({ error: "Неавторизован" }, { status: 401 });
   }
@@ -116,7 +111,6 @@ export async function PUT(request: Request) {
       })
       .where(eq(treatments.id, validated.id))
       .returning();
-    console.log("PUT /treatments updated:", updatedTreatment);
     if (!updatedTreatment) {
       return NextResponse.json(
         { error: "Лечение не найдено" },
@@ -141,7 +135,6 @@ export async function PUT(request: Request) {
 
 export async function DELETE(request: Request) {
   const session = await auth();
-  console.log("DELETE /treatments session:", session);
   if (!session || !session.user?.id) {
     return NextResponse.json({ error: "Неавторизован" }, { status: 401 });
   }
@@ -156,7 +149,6 @@ export async function DELETE(request: Request) {
       .delete(treatments)
       .where(eq(treatments.id, id))
       .returning();
-    console.log("DELETE /treatments deleted:", deletedTreatment);
     if (!deletedTreatment) {
       return NextResponse.json(
         { error: "Лечение не найдено" },

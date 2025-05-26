@@ -5,21 +5,64 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { eq, and } from "drizzle-orm";
 
-const recommendationSchema = z.array(
-  z.object({
-    id: z.string().uuid(),
-    description: z.string(),
-    providerName: z.string().nullable(),
-    createdAt: z.string(),
-  })
-);
+const recommendationSchema = z.object({
+  description: z.string().min(1, "Описание обязательно"),
+});
 
 export const GET = async (
+  _: Request,
+  { params }: { params: { id: string } }
+) => {
+  const session = await auth();
+  if (!session || !session.user?.id) {
+    return NextResponse.json({ error: "Неавторизован" }, { status: 401 });
+  }
+
+  try {
+    // Verify patient exists and is accessible
+    const [patient] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(
+        and(
+          eq(users.id, params.id),
+          eq(users.userType, "PATIENT"),
+          eq(users.organization, session.user.organization),
+          eq(users.city, session.user.city)
+        )
+      );
+
+    if (!patient) {
+      return NextResponse.json({ error: "Пациент не найден" }, { status: 404 });
+    }
+
+    // Fetch recommendations with provider name
+    const recommendationsData = await db
+      .select({
+        id: recommendations.id,
+        description: recommendations.description,
+        providerName: users.fullName,
+        createdAt: recommendations.createdAt,
+      })
+      .from(recommendations)
+      .leftJoin(users, eq(recommendations.providerId, users.id))
+      .where(eq(recommendations.patientId, params.id));
+
+    return NextResponse.json(recommendationsData);
+  } catch (error) {
+    console.error("GET /patients/[id]/recommendations error:", error);
+    return NextResponse.json(
+      { error: "Не удалось получить рекомендации" },
+      { status: 500 }
+    );
+  }
+};
+
+export const POST = async (
   request: Request,
   { params }: { params: { id: string } }
 ) => {
   const session = await auth();
-  console.log("GET /patients/[id]/recommendations session:", session);
   if (!session || !session.user?.id) {
     return NextResponse.json({ error: "Неавторизован" }, { status: 401 });
   }
@@ -32,35 +75,42 @@ export const GET = async (
   }
 
   try {
-    const data = await db
-      .select({
-        id: recommendations.id,
-        description: recommendations.description,
-        providerName: users.fullName,
-        createdAt: recommendations.createdAt,
-      })
-      .from(recommendations)
-      .leftJoin(users, eq(recommendations.providerId, users.id))
+    const body = await request.json();
+    const validated = recommendationSchema.parse(body);
+
+    const [patient] = await db
+      .select({ id: users.id })
+      .from(users)
       .where(
         and(
-          eq(recommendations.patientId, params.id),
+          eq(users.id, params.id),
+          eq(users.userType, "PATIENT"),
           eq(users.organization, session.user.organization),
           eq(users.city, session.user.city)
         )
       );
 
-    const validated = recommendationSchema.parse(
-      data.map((item) => ({
-        ...item,
-        createdAt: item.createdAt.toISOString(),
-      }))
-    );
-    console.log("GET /patients/[id]/recommendations data:", validated);
-    return NextResponse.json(validated);
+    if (!patient) {
+      return NextResponse.json({ error: "Пациент не найден" }, { status: 404 });
+    }
+
+    const [newRecommendation] = await db
+      .insert(recommendations)
+      .values({
+        patientId: params.id,
+        providerId: session.user.id,
+        description: validated.description,
+      })
+      .returning();
+
+    return NextResponse.json(newRecommendation);
   } catch (error) {
-    console.error("GET /patients/[id]/recommendations error:", error);
+    console.error("POST /patients/[id]/recommendations error:", error);
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ error: error.errors }, { status: 400 });
+    }
     return NextResponse.json(
-      { error: "Не удалось получить рекомендации", details: error.message },
+      { error: "Не удалось создать рекомендацию", details: error.message },
       { status: 500 }
     );
   }

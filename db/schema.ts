@@ -26,10 +26,17 @@ export const measurementTypeEnum = pgEnum("measurementType", [
   "xray",
   "inr",
 ]);
+
 export const consultationStatusEnum = pgEnum("consultationStatus", [
   "SCHEDULED",
   "COMPLETED",
   "CANCELLED",
+]);
+
+export const invitationStatusEnum = pgEnum("invitationStatus", [
+  "PENDING",
+  "ACCEPTED",
+  "DECLINED",
 ]);
 
 export const users = pgTable("users", {
@@ -143,4 +150,18 @@ export const files = pgTable("files", {
     onDelete: "set null",
   }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
+
+export const invitations = pgTable("invitations", {
+  id: uuid("id").notNull().primaryKey().defaultRandom(),
+  patientId: uuid("patient_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  providerId: uuid("provider_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  riskGroup: varchar("risk_group", { length: 255 }).notNull(),
+  status: invitationStatusEnum("status").default("PENDING"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });

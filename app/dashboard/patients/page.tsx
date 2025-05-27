@@ -1,56 +1,36 @@
-import { NextResponse } from "next/server";
-import { db } from "@/db/drizzle";
-import {
-  users,
-  consultations,
-  diagnoses,
-  riskGroups,
-  invitations,
-} from "@/db/schema";
-import { eq, and, ilike } from "drizzle-orm";
-import { sql } from "drizzle-orm";
 import { auth } from "@/auth";
-import { z } from "zod";
+import { redirect } from "next/navigation";
+import { DashboardLayout } from "@/components/layouts/DashboardLayout";
+import { UserType } from "@/constants/userTypes";
+import { Button } from "@/components/ui/button";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { db } from "@/db/drizzle";
+import { users, consultations, diagnoses } from "@/db/schema";
+import { eq, and } from "drizzle-orm";
+import { sql } from "drizzle-orm";
+import Link from "next/link";
 
-const querySchema = z.object({
-  riskGroup: z
-    .enum(["Скрининг", "Вакцинация", "Беременные", "ЖФВ", "ДУ", "ПУЗ"])
-    .default("Скрининг")
-    .transform((val) => decodeURIComponent(val)),
-  age: z.coerce.number().min(0).max(120).optional(),
-  noRiskGroupFilter: z.preprocess(
-    (val) => val === "true",
-    z.boolean().default(false)
-  ),
-});
-
-function isValidDate(year: number, month: number, day: number): boolean {
-  if (month < 1 || month > 12 || day < 1 || day > 31) {
-    return false;
-  }
-  const fullYear = year < 50 ? 2000 + year : 1900 + year;
-  const date = new Date(fullYear, month - 1, day);
-  return (
-    date.getFullYear() === fullYear &&
-    date.getMonth() === month - 1 &&
-    date.getDate() === day
-  );
+interface Patient {
+  id: string;
+  name: string;
+  age: number;
+  diagnosis: string | null;
+  lastVisit: string | null;
 }
 
-function calculateAge(
-  iin: string,
-  currentDate: Date = new Date()
-): number | null {
+const calculateAge = (iin: string, currentDate: Date = new Date()): number => {
   const year = parseInt(iin.slice(0, 2), 10);
-  const month = parseInt(iin.slice(2, 4), 10);
+  const month = parseInt(iin.slice(2, 4), 10) - 1;
   const day = parseInt(iin.slice(4, 6), 10);
-
-  if (!isValidDate(year, month, day)) {
-    return null;
-  }
-
   const fullYear = year < 50 ? 2000 + year : 1900 + year;
-  const birthDate = new Date(fullYear, month - 1, day);
+  const birthDate = new Date(fullYear, month, day);
   let age = currentDate.getFullYear() - birthDate.getFullYear();
   const monthDiff = currentDate.getMonth() - birthDate.getMonth();
   if (
@@ -60,127 +40,121 @@ function calculateAge(
     age--;
   }
   return age;
-}
+};
 
-export async function GET(request: Request) {
+const PatientsPage = async () => {
+  const session = await auth();
+
+  if (!session) {
+    redirect("/sign-in");
+  }
+
+  const userType = session.user.userType as UserType;
+
+  if (userType === UserType.PATIENT) {
+    redirect("/dashboard");
+  }
+
+  let patients: Patient[] = [];
   try {
-    const session = await auth();
-    if (
-      !session?.user?.id ||
-      !["DOCTOR", "NURSE"].includes(session.user.userType)
-    ) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const { searchParams } = new URL(request.url);
-    const query = querySchema.parse({
-      riskGroup: searchParams.get("riskGroup") || "Скрининг",
-      age: searchParams.get("age"),
-      noRiskGroupFilter: searchParams.get("noRiskGroupFilter") ?? undefined,
-    });
-
-    // Age filtering for Скрининг
-    const ageConditions = [];
-    if (
-      query.riskGroup === "Скрининг" &&
-      query.age !== undefined &&
-      query.age > 0
-    ) {
-      const currentYear = new Date().getFullYear();
-      const targetYearMin = currentYear - query.age - 1;
-      const targetYearMax = currentYear - query.age;
-      ageConditions.push(
-        sql`
-          CASE
-            WHEN to_date(left(${users.iin}, 6), 'YYMMDD') IS NOT NULL
-            THEN EXTRACT(YEAR FROM to_date(left(${users.iin}, 6), 'YYMMDD')) BETWEEN ${targetYearMin} AND ${targetYearMax}
-            ELSE FALSE
-          END
-        `
-      );
-    }
-
-    // Base query
-    let baseQuery = db
+    const patientRecords = await db
       .select({
         id: users.id,
         name: users.fullName,
         iin: users.iin,
-        lastVisit: sql`MAX(${consultations.consultationDate})`,
-        diagnoses: sql`STRING_AGG(DISTINCT ${diagnoses.description}, ', ')`,
-        invitationId: invitations.id,
+        lastVisit: consultations.consultationDate,
+        diagnoses: sql`string_agg(${diagnoses.description}, ', ')`.as(
+          "diagnoses"
+        ),
       })
       .from(users)
       .leftJoin(consultations, eq(consultations.patientId, users.id))
       .leftJoin(diagnoses, eq(diagnoses.userId, users.id))
-      .leftJoin(
-        invitations,
-        and(
-          eq(invitations.patientId, users.id),
-          eq(invitations.riskGroup, query.riskGroup)
-        )
-      )
       .where(
         and(
           eq(users.userType, "PATIENT"),
-          ilike(users.organization, session.user.organization),
-          ilike(users.city, session.user.city),
-          ...ageConditions
+          eq(users.organization, session.user.organization),
+          eq(users.city, session.user.city)
         )
       )
-      .groupBy(users.id, invitations.id);
-
-    // Apply risk group filter only for Беременные, ЖФВ, ДУ, ПУЗ
-    if (
-      !query.noRiskGroupFilter &&
-      query.riskGroup !== "Скрининг" &&
-      query.riskGroup !== "Вакцинация"
-    ) {
-      baseQuery = baseQuery.innerJoin(
-        riskGroups,
-        and(
-          eq(riskGroups.userId, users.id),
-          eq(riskGroups.name, query.riskGroup)
-        )
-      );
-    }
-
-    const patientRecords = await baseQuery;
-
-    const patients = patientRecords
-      .map((record) => {
-        const age = calculateAge(record.iin);
-        if (
-          age === null &&
-          query.riskGroup === "Скрининг" &&
-          query.age !== undefined &&
-          query.age > 0
-        ) {
-          return null;
-        }
-        return {
-          id: record.id,
-          name: record.name,
-          age: age ?? 0,
-          diagnosis: record.diagnoses || "Нет диагнозов",
-          isInvited: !!record.invitationId,
-        };
-      })
-      .filter(
-        (patient): patient is NonNullable<typeof patient> => patient !== null
+      .groupBy(
+        users.id,
+        users.fullName,
+        users.iin,
+        consultations.consultationDate
       );
 
-    return NextResponse.json(patients);
+    patients = patientRecords.map((record) => ({
+      id: record.id,
+      name: record.name,
+      age: calculateAge(record.iin),
+      diagnosis: record.diagnoses || "Нет диагнозов",
+      lastVisit: record.lastVisit
+        ? new Date(record.lastVisit).toLocaleDateString("ru-RU", {
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          })
+        : null,
+    }));
   } catch (error) {
     console.error("Error fetching patients:", error);
-    return NextResponse.json(
-      {
-        error:
-          error instanceof z.ZodError
-            ? "Invalid request parameters"
-            : "Server error",
-      },
-      { status: error instanceof z.ZodError ? 400 : 500 }
-    );
   }
-}
+
+  return (
+    <DashboardLayout
+      userType={userType}
+      session={{
+        fullName: session.user.fullName,
+      }}
+    >
+      <div className="space-y-4">
+        <div className="flex justify-between items-center">
+          <h2 className="text-2xl font-bold">Список пациентов</h2>
+          <Button>Добавить пациента</Button>
+        </div>
+
+        <div className="border rounded-lg">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>ФИО</TableHead>
+                <TableHead>Возраст</TableHead>
+                <TableHead>Диагноз</TableHead>
+                <TableHead>Последний визит</TableHead>
+                <TableHead>Действия</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {patients.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center">
+                    Нет пациентов в вашей организации и городе
+                  </TableCell>
+                </TableRow>
+              ) : (
+                patients.map((patient) => (
+                  <TableRow key={patient.id}>
+                    <TableCell>{patient.name}</TableCell>
+                    <TableCell>{patient.age}</TableCell>
+                    <TableCell>{patient.diagnosis}</TableCell>
+                    <TableCell>{patient.lastVisit || "Нет данных"}</TableCell>
+                    <TableCell>
+                      <Button variant="outline" size="sm" asChild>
+                        <Link href={`/dashboard/patients/${patient.id}`}>
+                          Подробнее
+                        </Link>
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </div>
+    </DashboardLayout>
+  );
+};
+
+export default PatientsPage;

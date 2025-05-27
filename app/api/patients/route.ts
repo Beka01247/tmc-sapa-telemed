@@ -117,7 +117,8 @@ export async function GET(request: Request) {
         invitations,
         and(
           eq(invitations.patientId, users.id),
-          eq(invitations.riskGroup, query.riskGroup)
+          eq(invitations.riskGroup, query.riskGroup),
+          eq(invitations.status, "PENDING")
         )
       )
       .where(
@@ -130,12 +131,8 @@ export async function GET(request: Request) {
       )
       .groupBy(users.id, invitations.id);
 
-    // Apply risk group filter only for Беременные, ЖФВ, ДУ, ПУЗ
-    if (
-      !query.noRiskGroupFilter &&
-      query.riskGroup !== "Скрининг" &&
-      query.riskGroup !== "Вакцинация"
-    ) {
+    // Apply risk group filter for all groups except Скрининг
+    if (query.riskGroup !== "Скрининг") {
       baseQuery = baseQuery.innerJoin(
         riskGroups,
         and(

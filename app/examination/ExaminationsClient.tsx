@@ -45,7 +45,7 @@ export const ExaminationsClient = ({
 }: ExaminationsClientProps) => {
   const router = useRouter();
   const [patients, setPatients] = useState<Patient[]>(initialPatients);
-  const [age, setAge] = useState<string>(""); // Changed from minAge/maxAge to single age
+  const [age, setAge] = useState<string>("");
   const [activeTab, setActiveTab] = useState<string>("Скрининг");
   const [patientCount, setPatientCount] = useState<number>(
     initialPatients.length
@@ -68,7 +68,7 @@ export const ExaminationsClient = ({
     try {
       const params = new URLSearchParams();
 
-      if (activeTab === "Скрининг" || activeTab === "Вакцинация") {
+      if (activeTab === "Скрининг") {
         params.append("noRiskGroupFilter", "true");
       } else {
         params.append("riskGroup", activeTab);
@@ -120,8 +120,11 @@ export const ExaminationsClient = ({
 
   const handleAgeFilterChange = () => {
     const ageValue = age ? parseInt(age) : undefined;
-    if (ageValue && isNaN(ageValue)) {
-      toast.error("Введите корректный возраст");
+    if (
+      ageValue !== undefined &&
+      (isNaN(ageValue) || ageValue < 0 || ageValue > 120)
+    ) {
+      toast.error("Введите корректный возраст (0-120)");
       return;
     }
     fetchPatients();
@@ -158,12 +161,12 @@ export const ExaminationsClient = ({
                     </Link>
                   </Button>
                   <Button
-                    variant="default"
+                    variant={patient.isInvited ? "secondary" : "default"}
                     size="sm"
                     onClick={() => handleInvite(patient.id)}
                     disabled={patient.isInvited}
                   >
-                    Пригласить
+                    {patient.isInvited ? "Приглашен(а)" : "Пригласить"}
                   </Button>
                 </TableCell>
               </TableRow>
@@ -188,7 +191,6 @@ export const ExaminationsClient = ({
           </TabsList>
           <TabsContent value="Скрининг">
             <div className="flex items-center justify-between w-full">
-              {/* Centered age input and button */}
               <div className="flex items-center space-x-2 mx-auto">
                 <span className="font-medium">Возраст:</span>
                 <Input
@@ -203,17 +205,12 @@ export const ExaminationsClient = ({
                 />
                 <Button onClick={handleAgeFilterChange}>Применить</Button>
               </div>
-
-              {/* Right-aligned patient count */}
               <div className="whitespace-nowrap">
                 Найдено пациентов: {patientCount}
               </div>
             </div>
-
-            {/* Table */}
             <div className="mt-4">{renderPatientTable()}</div>
           </TabsContent>
-
           {riskGroups.slice(1).map((group) => (
             <TabsContent key={group} value={group}>
               <div className="space-y-4">

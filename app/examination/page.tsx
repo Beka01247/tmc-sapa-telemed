@@ -8,7 +8,7 @@ import {
   riskGroups,
   invitations,
 } from "@/db/schema";
-import { eq, and, inArray } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 import { UserType } from "@/constants/userTypes";
 import { ExaminationsClient } from "./ExaminationsClient";
@@ -46,26 +46,23 @@ async function fetchPatients(
   age?: number
 ): Promise<Patient[]> {
   try {
-    const riskGroupPatients = await db
-      .select({ userId: riskGroups.userId })
-      .from(riskGroups)
-      .where(eq(riskGroups.name, riskGroup));
-
-    if (!riskGroupPatients.length) {
-      return [];
-    }
-
-    const patientIds = riskGroupPatients.map((p) => p.userId);
-
     const ageFilters: any[] = [];
-    if (age !== undefined) {
-      const targetYear = new Date().getFullYear() - age;
+    if (riskGroup === "Скрининг" && age !== undefined && age > 0) {
+      const currentYear = new Date().getFullYear();
+      const targetYearMin = currentYear - age - 1;
+      const targetYearMax = currentYear - age;
       ageFilters.push(
-        sql`EXTRACT(YEAR FROM to_date(substring(${users.iin} from 1 for 6), 'YYMMDD')) = ${targetYear}`
+        sql`
+          CASE
+            WHEN to_date(substring(${users.iin} from 1 for 6), 'YYMMDD') IS NOT NULL
+            THEN EXTRACT(YEAR FROM to_date(substring(${users.iin} from 1 for 6), 'YYMMDD')) BETWEEN ${targetYearMin} AND ${targetYearMax}
+            ELSE FALSE
+          END
+        `
       );
     }
 
-    const patientRecords = await db
+    let query = db
       .select({
         id: users.id,
         name: users.fullName,
@@ -83,25 +80,41 @@ async function fetchPatients(
         invitations,
         and(
           eq(invitations.patientId, users.id),
-          eq(invitations.riskGroup, riskGroup)
+          eq(invitations.riskGroup, riskGroup),
+          eq(invitations.status, "PENDING")
         )
       )
       .where(
         and(
           eq(users.userType, "PATIENT"),
-          eq(users.organization, organization),
-          eq(users.city, city),
-          inArray(users.id, patientIds),
+          ilike(users.organization, organization),
+          ilike(users.city, city),
           ...ageFilters
         )
-      )
-      .groupBy(
-        users.id,
-        users.fullName,
-        users.iin,
-        consultations.consultationDate,
-        invitations.id
       );
+
+    // Apply risk group filter only for non-Скрининг and non-Вакцинация
+    if (riskGroup !== "Скрининг" && riskGroup !== "Вакцинация") {
+      query = query
+        .innerJoin(riskGroups, eq(riskGroups.userId, users.id))
+        .where(
+          and(
+            eq(users.userType, "PATIENT"),
+            ilike(users.organization, organization),
+            ilike(users.city, city),
+            eq(riskGroups.name, riskGroup),
+            ...ageFilters
+          )
+        );
+    }
+
+    const patientRecords = await query.groupBy(
+      users.id,
+      users.fullName,
+      users.iin,
+      consultations.consultationDate,
+      invitations.id
+    );
 
     return patientRecords.map((record) => ({
       id: record.id,
@@ -133,7 +146,7 @@ export default async function ExaminationsPage() {
   const userType = session.user.userType as UserType;
 
   if (userType === UserType.PATIENT) {
-    redirect("/dashboard");
+    redirect("/");
   }
 
   const patients = await fetchPatients(

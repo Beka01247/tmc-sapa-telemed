@@ -1,50 +1,24 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db/drizzle";
-import {
-  users,
-  consultations,
-  diagnoses,
-  riskGroups,
-  invitations,
-} from "@/db/schema";
-import { eq, and } from "drizzle-orm";
-import { sql } from "drizzle-orm";
+import { users, invitations } from "@/db/schema";
+import { eq, and, ilike } from "drizzle-orm";
 import { auth } from "@/auth";
 import { z } from "zod";
+import { v4 as uuidv4 } from "uuid";
 
-const querySchema = z.object({
-  riskGroup: z
-    .enum(["Скрининг", "Вакцинация", "Беременные", "ЖФВ", "ДУ", "ПУЗ"])
-    .optional()
-    .default("Скрининг")
-    .transform((val) => decodeURIComponent(val)), // Decode URL-encoded values
-  minAge: z.coerce.number().min(0).max(120).optional(),
-  maxAge: z.coerce.number().min(0).max(120).optional(),
-  noRiskGroupFilter: z
-    .enum(["true", "false"])
-    .optional()
-    .default("false")
-    .transform((val) => val === "true"),
+const postSchema = z.object({
+  patientId: z.string().uuid(),
+  riskGroup: z.enum([
+    "Скрининг",
+    "Вакцинация",
+    "Беременные",
+    "ЖФВ",
+    "ДУ",
+    "ПУЗ",
+  ]),
 });
 
-function calculateAge(iin: string, currentDate: Date = new Date()): number {
-  const year = parseInt(iin.slice(0, 2), 10);
-  const month = parseInt(iin.slice(2, 4), 10) - 1;
-  const day = parseInt(iin.slice(4, 6), 10);
-  const fullYear = year < 50 ? 2000 + year : 1900 + year;
-  const birthDate = new Date(fullYear, month, day);
-  let age = currentDate.getFullYear() - birthDate.getFullYear();
-  const monthDiff = currentDate.getMonth() - birthDate.getMonth();
-  if (
-    monthDiff < 0 ||
-    (monthDiff === 0 && currentDate.getDate() < birthDate.getDate())
-  ) {
-    age--;
-  }
-  return age;
-}
-
-export async function GET(request: Request) {
+export async function POST(request: Request) {
   try {
     const session = await auth();
     if (
@@ -58,109 +32,69 @@ export async function GET(request: Request) {
       );
     }
 
-    const { searchParams } = new URL(request.url);
-    console.log("Raw searchParams: ", Object.fromEntries(searchParams));
+    const body = await request.json();
+    const input = postSchema.parse(body);
 
-    // Prepare the query object with proper fallbacks
-    const queryInput = {
-      riskGroup: searchParams.get("riskGroup") || undefined,
-      minAge: searchParams.get("minAge") || undefined,
-      maxAge: searchParams.get("maxAge") || undefined,
-      noRiskGroupFilter: searchParams.get("noRiskGroupFilter") || undefined,
-    };
-
-    console.log("Query input: ", queryInput);
-
-    const query = querySchema.parse(queryInput);
-    console.log("Parsed query: ", query);
-
-    const riskGroup = query.riskGroup;
-
-    // Build age filters
-    const ageFilters: any[] = [];
-    if (query.minAge !== undefined) {
-      const minYear = new Date().getFullYear() - query.minAge;
-      ageFilters.push(
-        sql`EXTRACT(YEAR FROM to_date(substring(${users.iin} from 1 for 6), 'YYMMDD')) <= ${minYear}`
-      );
-    }
-    if (query.maxAge !== undefined) {
-      const maxYear = new Date().getFullYear() - query.maxAge;
-      ageFilters.push(
-        sql`EXTRACT(YEAR FROM to_date(substring(${users.iin} from 1 for 6), 'YYMMDD')) >= ${maxYear}`
-      );
-    }
-
-    // Build risk group filter
-    const riskGroupFilter = query.noRiskGroupFilter
-      ? sql`TRUE`
-      : eq(riskGroups.name, riskGroup);
-
-    // Fetch patients
-    const patientRecords = await db
-      .select({
-        id: users.id,
-        name: users.fullName,
-        iin: users.iin,
-        lastVisit: consultations.consultationDate,
-        diagnoses: sql`string_agg(${diagnoses.description}, ', ')`.as(
-          "diagnoses"
-        ),
-        invitationId: invitations.id,
-      })
+    // Check if patient exists and is valid
+    const patient = await db
+      .select()
       .from(users)
-      .leftJoin(
-        riskGroups,
-        and(eq(riskGroups.userId, users.id), riskGroupFilter)
-      )
-      .leftJoin(consultations, eq(consultations.patientId, users.id))
-      .leftJoin(diagnoses, eq(diagnoses.userId, users.id))
-      .leftJoin(
-        invitations,
-        and(
-          eq(invitations.patientId, users.id),
-          eq(invitations.riskGroup, riskGroup)
-        )
-      )
       .where(
         and(
+          eq(users.id, input.patientId),
           eq(users.userType, "PATIENT"),
-          eq(users.organization, session.user.organization),
-          eq(users.city, session.user.city),
-          ...ageFilters
+          ilike(users.organization, session.user.organization),
+          ilike(users.city, session.user.city)
         )
       )
-      .groupBy(
-        users.id,
-        users.fullName,
-        users.iin,
-        consultations.consultationDate,
-        invitations.id
+      .limit(1);
+
+    if (!patient.length) {
+      return NextResponse.json({ error: "Пациент не найден" }, { status: 404 });
+    }
+
+    // Check if a PENDING invitation exists
+    const existingInvitation = await db
+      .select()
+      .from(invitations)
+      .where(
+        and(
+          eq(invitations.patientId, input.patientId),
+          eq(invitations.riskGroup, input.riskGroup),
+          eq(invitations.status, "PENDING")
+        )
+      )
+      .limit(1);
+
+    if (existingInvitation.length) {
+      return NextResponse.json(
+        { error: "Пациент уже приглашен для этой группы риска" },
+        { status: 400 }
       );
+    }
 
-    const patients = patientRecords.map((record) => ({
-      id: record.id,
-      name: record.name,
-      age: calculateAge(record.iin),
-      diagnosis: record.diagnoses || "Нет диагнозов",
-      lastVisit: record.lastVisit
-        ? new Date(record.lastVisit).toLocaleDateString("ru-RU", {
-            year: "numeric",
-            month: "long",
-            day: "numeric",
-          })
-        : null,
-      isInvited: !!record.invitationId,
-    }));
+    // Create invitation
+    await db.insert(invitations).values({
+      id: uuidv4(),
+      patientId: input.patientId,
+      providerId: session.user.id,
+      riskGroup: input.riskGroup,
+      status: "PENDING",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
 
-    return NextResponse.json(patients, { status: 200 });
+    return NextResponse.json(
+      { message: "Приглашение отправлено" },
+      { status: 200 }
+    );
   } catch (error) {
-    console.error("Ошибка при загрузке пациентов:", error);
+    console.error("Ошибка при создании приглашения:", error);
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.errors }, { status: 400 });
     }
     return NextResponse.json(
-      { error: "Не удалось загрузить пациентов" },
+      { error: "Не удалось создать приглашение" },
       { status: 500 }
     );
   }

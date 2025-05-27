@@ -4,7 +4,7 @@ import { z } from "zod";
 import { hash } from "bcryptjs";
 import { signUpSchema } from "../validations";
 import { db } from "@/db/drizzle";
-import { users, userTypeEnum } from "@/db/schema";
+import { riskGroups, users, userTypeEnum } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { UserType } from "@/constants/userTypes";
 import { signIn } from "@/auth";
@@ -67,7 +67,7 @@ export async function signUp(params: AuthCredentials) {
     }
 
     // Create the user
-    await db
+    const [newUser] = await db
       .insert(users)
       .values({
         fullName: validatedData.fullName,
@@ -85,6 +85,13 @@ export async function signUp(params: AuthCredentials) {
         telephone: validatedData.telephone,
       })
       .returning();
+
+    if (dbUserType === "PATIENT") {
+      await db.insert(riskGroups).values({
+        userId: newUser.id,
+        name: "Вакцинация",
+      });
+    }
 
     return {
       success: true,

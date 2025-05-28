@@ -11,40 +11,62 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { db } from "@/db/drizzle";
+import { recommendations, users } from "@/db/schema";
+import { eq } from "drizzle-orm";
 
-const dummyRecommendations = [
-  {
-    id: 1,
-    text: "Делать зарядку 2-3 раза в день",
-    date: "2025-05-15",
-    doctor: "Иванов И.И.",
-  },
-  {
-    id: 2,
-    text: "Ежедневная 30-минутная прогулка",
-    date: "2025-05-10",
-    doctor: "Петров П.П.",
-  },
-  {
-    id: 3,
-    text: "Контроль уровня сахара в крови",
-    date: "2025-05-01",
-    doctor: "Сидоров С.С.",
-  },
-];
+interface Recommendation {
+  id: string;
+  text: string; // Recommendation description
+  date: string; // Formatted createdAt
+  doctor: string; // Provider's fullName
+}
+
+async function fetchRecommendations(
+  patientId: string
+): Promise<Recommendation[]> {
+  try {
+    const data = await db
+      .select({
+        id: recommendations.id,
+        description: recommendations.description,
+        createdAt: recommendations.createdAt,
+        doctorName: users.fullName,
+      })
+      .from(recommendations)
+      .leftJoin(users, eq(users.id, recommendations.providerId))
+      .where(eq(recommendations.patientId, patientId));
+
+    return data.map((record) => ({
+      id: record.id,
+      text: record.description,
+      date: new Date(record.createdAt).toLocaleDateString("ru-RU", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      }),
+      doctor: record.doctorName || "Неизвестный врач",
+    }));
+  } catch (error) {
+    console.error("Error fetching recommendations:", error);
+    return [];
+  }
+}
 
 const RecommendationsPage = async () => {
   const session = await auth();
 
-  if (!session) {
+  if (!session || !session.user?.id) {
     redirect("/sign-in");
   }
 
   const userType = session.user.userType as UserType;
 
   if (userType !== UserType.PATIENT) {
-    redirect("/dashboard");
+    redirect("/");
   }
+
+  const recommendations = await fetchRecommendations(session.user.id);
 
   return (
     <DashboardLayout
@@ -54,10 +76,7 @@ const RecommendationsPage = async () => {
       }}
     >
       <div className="space-y-4">
-        <div className="flex justify-between items-center">
-          <h2 className="text-2xl font-bold">Рекомендации</h2>
-          <Button>Добавить рекомендацию</Button>
-        </div>
+        <h2 className="text-2xl font-bold">Рекомендации</h2>
 
         <div className="border rounded-lg">
           <Table>
@@ -66,27 +85,24 @@ const RecommendationsPage = async () => {
                 <TableHead>Рекомендация</TableHead>
                 <TableHead>Дата</TableHead>
                 <TableHead>Врач</TableHead>
-                <TableHead>Действия</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {dummyRecommendations.map((recommendation) => (
-                <TableRow key={recommendation.id}>
-                  <TableCell>{recommendation.text}</TableCell>
-                  <TableCell>{recommendation.date}</TableCell>
-                  <TableCell>{recommendation.doctor}</TableCell>
-                  <TableCell>
-                    <div className="space-x-2">
-                      <Button variant="outline" size="sm">
-                        Отметить как выполненное
-                      </Button>
-                      <Button variant="outline" size="sm">
-                        Подробнее
-                      </Button>
-                    </div>
+              {recommendations.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center">
+                    Нет рекомендаций
                   </TableCell>
                 </TableRow>
-              ))}
+              ) : (
+                recommendations.map((recommendation) => (
+                  <TableRow key={recommendation.id}>
+                    <TableCell>{recommendation.text}</TableCell>
+                    <TableCell>{recommendation.date}</TableCell>
+                    <TableCell>{recommendation.doctor}</TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </div>

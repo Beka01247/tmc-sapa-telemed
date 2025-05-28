@@ -4,47 +4,192 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { db } from "@/db/drizzle";
+import { invitations, users } from "@/db/schema";
+import { eq, and } from "drizzle-orm";
+
+interface Invitation {
+  id: string;
+  riskGroup: string;
+  date: string; // Formatted createdAt
+  doctor: string; // Provider's fullName
+}
+
+interface UserInfo {
+  fullName: string;
+  email: string;
+  city: string;
+  organization: string;
+  iin: string;
+  telephone: string;
+  dateOfBirth: string | null;
+}
+
+async function fetchUserInfo(userId: string): Promise<UserInfo | null> {
+  try {
+    const [user] = await db
+      .select({
+        fullName: users.fullName,
+        email: users.email,
+        city: users.city,
+        organization: users.organization,
+        iin: users.iin,
+        telephone: users.telephone,
+        dateOfBirth: users.dateOfBirth,
+      })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+
+    if (!user) return null;
+
+    return {
+      ...user,
+      dateOfBirth: user.dateOfBirth
+        ? new Date(user.dateOfBirth).toLocaleDateString("ru-RU", {
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          })
+        : null,
+    };
+  } catch (error) {
+    console.error("Error fetching user info:", error);
+    return null;
+  }
+}
+
+async function fetchInvitations(patientId: string): Promise<Invitation[]> {
+  try {
+    const data = await db
+      .select({
+        id: invitations.id,
+        riskGroup: invitations.riskGroup,
+        createdAt: invitations.createdAt,
+        doctorName: users.fullName,
+      })
+      .from(invitations)
+      .leftJoin(users, eq(users.id, invitations.providerId))
+      .where(
+        and(
+          eq(invitations.patientId, patientId),
+          eq(invitations.status, "PENDING")
+        )
+      );
+
+    return data.map((record) => ({
+      id: record.id,
+      riskGroup: record.riskGroup,
+      date: new Date(record.createdAt).toLocaleDateString("ru-RU", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+      doctor: record.doctorName || "Неизвестный врач",
+    }));
+  } catch (error) {
+    console.error("Error fetching invitations:", error);
+    return [];
+  }
+}
 
 const DashboardPage = async () => {
   const session = await auth();
 
-  if (!session) redirect("/sign-in");
-
-  if (!session?.user?.userType) {
-    console.error("User session is missing required data:", session);
-    return <div>Error loading user data</div>;
+  if (!session || !session.user?.id) {
+    redirect("/sign-in");
   }
 
   const userType = session.user.userType as UserType;
 
+  if (userType !== UserType.PATIENT) {
+    redirect("/");
+  }
+
+  const userInfo = await fetchUserInfo(session.user.id);
+  const invitations = await fetchInvitations(session.user.id);
+
+  if (!userInfo) {
+    return (
+      <DashboardLayout
+        userType={userType}
+        session={{ fullName: session.user.fullName }}
+      >
+        <div className="text-red-500">Ошибка загрузки данных пользователя</div>
+      </DashboardLayout>
+    );
+  }
+
   return (
     <DashboardLayout
       userType={userType}
-      session={{
-        fullName: session.user.fullName,
-      }}
+      session={{ fullName: session.user.fullName }}
     >
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <Card>
+      <div className="space-y-6">
+        <h2 className="text-2xl font-bold">Мой профиль</h2>
+
+        <Card className="bg-white text-black border-gray-600">
           <CardHeader>
-            <CardTitle>Добро пожаловать!</CardTitle>
+            <CardTitle>Информация о пользователе</CardTitle>
           </CardHeader>
-          <CardContent>
-            <p>Выберите нужный раздел в меню слева для начала работы.</p>
+          <CardContent className="space-y-2">
+            <p>
+              <span className="font-semibold">ФИО:</span> {userInfo.fullName}
+            </p>
+            <p>
+              <span className="font-semibold">Email:</span> {userInfo.email}
+            </p>
+            <p>
+              <span className="font-semibold">Город:</span> {userInfo.city}
+            </p>
+            <p>
+              <span className="font-semibold">Организация:</span>{" "}
+              {userInfo.organization}
+            </p>
+            <p>
+              <span className="font-semibold">ИИН:</span> {userInfo.iin}
+            </p>
+            <p>
+              <span className="font-semibold">Телефон:</span>{" "}
+              {userInfo.telephone}
+            </p>
+            {userInfo.dateOfBirth && (
+              <p>
+                <span className="font-semibold">Дата рождения:</span>{" "}
+                {userInfo.dateOfBirth}
+              </p>
+            )}
           </CardContent>
         </Card>
-        <Card className="bg-gray-800 text-white border-gray-600">
-          <CardHeader>
-            <CardTitle>Следующий прием</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p>25 мая 2025, 14:00</p>
-            <p className="text-gray-400">Доктор: Иванов И.И.</p>
-            <Button className="mt-4 bg-gray-600 hover:bg-gray-500">
-              Подключиться
-            </Button>
-          </CardContent>
-        </Card>
+
+        <div className="space-y-4">
+          <h3 className="text-2xl font-bold">Приглашения на анализы</h3>
+          {invitations.length === 0 ? (
+            <p className="text-gray-500">Нет активных приглашений</p>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+              {invitations.map((invitation) => (
+                <Card
+                  key={invitation.id}
+                  className="bg-gray-800 text-white border-gray-600"
+                >
+                  <CardHeader>
+                    <CardTitle>{invitation.riskGroup}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p>{invitation.date}</p>
+                    <p className="text-gray-400">Доктор: {invitation.doctor}</p>
+                    <Button className="mt-4 bg-gray-600 hover:bg-gray-500">
+                      Отметить как пройдено
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </DashboardLayout>
   );

@@ -6,7 +6,7 @@ import { auth } from "@/auth";
 import { z } from "zod";
 
 const riskGroupSchema = z.object({
-  name: z.string().min(1, "Название группы риска обязательно").max(255),
+  name: z.string().min(1, "Название группы обязательно").max(255),
 });
 
 const riskGroupIdSchema = z.object({
@@ -55,7 +55,7 @@ export async function POST(
 
     return NextResponse.json(newRiskGroup, { status: 201 });
   } catch (error) {
-    console.error("Ошибка при добавлении группы риска:", error);
+    console.error("Ошибка при добавлении группы:", error);
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.errors }, { status: 400 });
     }
@@ -122,7 +122,7 @@ export async function PUT(
       return NextResponse.json({ error: error.errors }, { status: 400 });
     }
     return NextResponse.json(
-      { error: "Не удалось обновить группы риска" },
+      { error: "Не удалось обновить группы" },
       { status: 500 }
     );
   }
@@ -172,15 +172,12 @@ export async function PATCH(
       .returning({ id: riskGroups.id, name: riskGroups.name });
 
     if (!updatedRiskGroup) {
-      return NextResponse.json(
-        { error: "Группа риска не найдена" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Группа не найдена" }, { status: 404 });
     }
 
     return NextResponse.json(updatedRiskGroup, { status: 200 });
   } catch (error) {
-    console.error("Ошибка при обновлении группы риска:", error);
+    console.error("Ошибка при обновлении группы:", error);
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.errors }, { status: 400 });
     }
@@ -229,18 +226,12 @@ export async function DELETE(
       .returning({ id: riskGroups.id, name: riskGroups.name });
 
     if (!deletedRiskGroup) {
-      return NextResponse.json(
-        { error: "Группа риска не найдена" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Группа не найдена" }, { status: 404 });
     }
 
-    return NextResponse.json(
-      { message: "Группа риска удалена" },
-      { status: 200 }
-    );
+    return NextResponse.json({ message: "Группа удалена" }, { status: 200 });
   } catch (error) {
-    console.error("Ошибка при удалении группы риска:", error);
+    console.error("Ошибка при удалении группы:", error);
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.errors }, { status: 400 });
     }

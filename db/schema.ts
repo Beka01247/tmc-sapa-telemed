@@ -8,6 +8,7 @@ import {
   date,
 } from "drizzle-orm/pg-core";
 
+export const genderEnum = pgEnum("gender", ["МУЖСКОЙ", "ЖЕНСКИЙ", "ЖЕНСКИЙ"]);
 export const userTypeEnum = pgEnum("userType", ["DOCTOR", "NURSE", "PATIENT"]);
 export const doctorTypeEnum = pgEnum("doctorType", ["GENERAL", "SPECIALIST"]);
 export const measurementTypeEnum = pgEnum("measurementType", [
@@ -56,6 +57,7 @@ export const users = pgTable("users", {
   iin: varchar("iin", { length: 12 }).unique().notNull(),
   telephone: varchar("telephone", { length: 20 }).notNull(),
   dateOfBirth: date("date_of_birth"),
+  gender: genderEnum("gender"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });

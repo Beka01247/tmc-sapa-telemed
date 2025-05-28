@@ -54,22 +54,22 @@ export const EditRiskGroupsModal = ({
       const addedRiskGroup: RiskGroup = await response.json();
       setRiskGroups([...riskGroups, addedRiskGroup]);
       setNewRiskGroup("");
-      toast.success("Группа риска добавлена");
+      toast.success("Группа добавлена");
     } catch (error) {
-      console.error("Ошибка при добавлении группы риска:", error);
-      toast.error("Ошибка при добавлении группы риска");
+      console.error("Ошибка при добавлении группы:", error);
+      toast.error("Ошибка при добавлении группы");
     }
   };
 
   const handleUpdateRiskGroup = async (index: number, name: string) => {
     if (!name.trim()) {
-      toast.error("Группа риска не может быть пустой");
+      toast.error("Группа не может быть пустой");
       return;
     }
 
     const riskGroup = riskGroups[index];
     if (!riskGroup.id) {
-      toast.error("Неверный ID группы риска");
+      toast.error("Неверный ID группы");
       return;
     }
 
@@ -88,10 +88,10 @@ export const EditRiskGroupsModal = ({
       const newRiskGroups = [...riskGroups];
       newRiskGroups[index] = updatedRiskGroup;
       setRiskGroups(newRiskGroups);
-      toast.success("Группа риска обновлена");
+      toast.success("Группа обновлена");
     } catch (error) {
-      console.error("Ошибка при обновлении группы риска:", error);
-      toast.error("Ошибка при обновлении группы риска");
+      console.error("Ошибка при обновлении группы:", error);
+      toast.error("Ошибка при обновлении группы");
     }
   };
 
@@ -114,10 +114,10 @@ export const EditRiskGroupsModal = ({
       }
 
       setRiskGroups(riskGroups.filter((_, i) => i !== index));
-      toast.success("Группа риска удалена");
+      toast.success("Группа удалена");
     } catch (error) {
-      console.error("Ошибка при удалении группы риска:", error);
-      toast.error("Ошибка при удалении группы риска");
+      console.error("Ошибка при удалении группы:", error);
+      toast.error("Ошибка при удалении группы");
     }
   };
 
@@ -130,7 +130,7 @@ export const EditRiskGroupsModal = ({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Редактировать группы риска</DialogTitle>
+          <DialogTitle>Редактировать группы</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           {riskGroups.length > 0 ? (
@@ -151,7 +151,7 @@ export const EditRiskGroupsModal = ({
               </div>
             ))
           ) : (
-            <p className="text-gray-500">Группы риска отсутствуют</p>
+            <p className="text-gray-500">Группы отсутствуют</p>
           )}
           <div className="flex items-center gap-2">
             <Input

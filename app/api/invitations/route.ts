@@ -68,7 +68,7 @@ export async function POST(request: Request) {
 
     if (existingInvitation.length) {
       return NextResponse.json(
-        { error: "Пациент уже приглашен для этой группы риска" },
+        { error: "Пациент уже приглашен для этой группы" },
         { status: 400 }
       );
     }

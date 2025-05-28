@@ -36,6 +36,7 @@ interface Patient {
   city: string;
   organization: string;
   dateOfBirth: string | null;
+  gender: "MALE" | "FEMALE" | "OTHER" | null;
   diagnoses: Diagnosis[];
   riskGroups: RiskGroup[];
 }
@@ -115,6 +116,29 @@ const calculateAge = (iin: string, currentDate: Date = new Date()): number => {
   return age;
 };
 
+const formatDate = (dateString: string | null): string => {
+  if (!dateString) return "Не указана";
+  return new Date(dateString).toLocaleDateString("ru-RU", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+};
+
+const formatGender = (gender: "MALE" | "FEMALE" | "OTHER" | null): string => {
+  if (!gender) return "Не указан";
+  switch (gender) {
+    case "MALE":
+      return "Мужской";
+    case "FEMALE":
+      return "Женский";
+    case "OTHER":
+      return "Другой";
+    default:
+      return "Не указан";
+  }
+};
+
 export const PatientDetailsClient = ({
   initialData,
   userType,
@@ -177,6 +201,13 @@ export const PatientDetailsClient = ({
               <p>
                 <strong>Возраст:</strong>{" "}
                 {calculateAge(initialData.patient.iin)}
+              </p>
+              <p>
+                <strong>Дата рождения:</strong>{" "}
+                {formatDate(initialData.patient.dateOfBirth)}
+              </p>
+              <p>
+                <strong>Пол:</strong> {formatGender(initialData.patient.gender)}
               </p>
               <p>
                 <strong>ИИН:</strong> {initialData.patient.iin}

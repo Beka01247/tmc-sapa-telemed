@@ -36,7 +36,7 @@ interface Patient {
   city: string;
   organization: string;
   dateOfBirth: string | null;
-  gender: "MALE" | "FEMALE" | "OTHER" | null;
+  gender: "МУЖСКОЙ" | "ЖЕНСКИЙ" | "ДРУГОЙ" | null;
   diagnoses: Diagnosis[];
   riskGroups: RiskGroup[];
 }
@@ -125,17 +125,18 @@ const formatDate = (dateString: string | null): string => {
   });
 };
 
-const formatGender = (gender: "MALE" | "FEMALE" | "OTHER" | null): string => {
-  if (!gender) return "Не указан";
+const formatGender = (
+  gender: "МУЖСКОЙ" | "ЖЕНСКИЙ" | "ДРУГОЙ" | null
+): string => {
   switch (gender) {
-    case "MALE":
-      return "Мужской";
-    case "FEMALE":
-      return "Женский";
-    case "OTHER":
-      return "Другой";
+    case "МУЖСКОЙ":
+      return "М";
+    case "ЖЕНСКИЙ":
+      return "Ж";
+    case "ДРУГОЙ":
+      return "Другое";
     default:
-      return "Не указан";
+      return "Неизвестно";
   }
 };
 

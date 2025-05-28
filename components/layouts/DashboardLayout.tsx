@@ -31,14 +31,14 @@ interface DashboardLayoutProps {
 const doctorNavItems: NavItem[] = [
   { title: "Аккаунт", href: "/dashboard" },
   { title: "Мониторинг", href: "/dashboard/patients" },
-  { title: "Обселодвание", href: "/examination" },
+  { title: "Обследование", href: "/examination" },
   { title: "Статистика", href: "/statistics" },
 ];
 
 const nurseNavItems: NavItem[] = [
   { title: "Аккаунт", href: "/dashboard" },
   { title: "Пациенты", href: "/dashboard/patients" },
-  { title: "Обселодвание", href: "/examination" },
+  { title: "Обследование", href: "/examination" },
   { title: "Статистика", href: "/statistics" },
 ];
 

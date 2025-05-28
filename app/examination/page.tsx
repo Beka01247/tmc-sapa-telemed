@@ -18,7 +18,6 @@ interface Patient {
   name: string;
   age: number;
   diagnosis: string | null;
-  lastVisit: string | null;
   isInvited: boolean;
 }
 
@@ -67,7 +66,6 @@ async function fetchPatients(
         id: users.id,
         name: users.fullName,
         iin: users.iin,
-        lastVisit: consultations.consultationDate,
         diagnoses: sql`string_agg(${diagnoses.description}, ', ')`.as(
           "diagnoses"
         ),
@@ -121,13 +119,6 @@ async function fetchPatients(
       name: record.name,
       age: calculateAge(record.iin),
       diagnosis: record.diagnoses || "Нет диагнозов",
-      lastVisit: record.lastVisit
-        ? new Date(record.lastVisit).toLocaleDateString("ru-RU", {
-            year: "numeric",
-            month: "long",
-            day: "numeric",
-          })
-        : null,
       isInvited: !!record.invitationId,
     }));
   } catch (error) {

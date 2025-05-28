@@ -31,7 +31,7 @@ interface UserInfo {
   iin: string;
   telephone: string;
   dateOfBirth: string | null;
-  gender: "MALE" | "FEMALE" | "OTHER" | null;
+  gender: "МУЖСКОЙ" | "ЖЕНСКИЙ" | "ДРУГОЙ" | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -74,16 +74,6 @@ async function fetchUserInfo(userId: string): Promise<UserInfo | null> {
             day: "numeric",
           })
         : null,
-      createdAt: new Date(user.createdAt).toLocaleDateString("ru-RU", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      }),
-      updatedAt: new Date(user.updatedAt).toLocaleDateString("ru-RU", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      }),
     };
   } catch (error) {
     console.error("Error fetching user info:", error);
@@ -127,17 +117,18 @@ async function fetchInvitations(patientId: string): Promise<Invitation[]> {
   }
 }
 
-const formatGender = (gender: "MALE" | "FEMALE" | "OTHER" | null): string => {
-  if (!gender) return "Не указан";
+const formatGender = (
+  gender: "МУЖСКОЙ" | "ЖЕНСКИЙ" | "ДРУГОЙ" | null
+): string => {
   switch (gender) {
-    case "MALE":
-      return "Мужской";
-    case "FEMALE":
-      return "Женский";
-    case "OTHER":
-      return "Другой";
+    case "МУЖСКОЙ":
+      return "М";
+    case "ЖЕНСКИЙ":
+      return "Ж";
+    case "ДРУГОЙ":
+      return "Другое";
     default:
-      return "Не указан";
+      return "Неизвестно";
   }
 };
 
@@ -255,14 +246,6 @@ const DashboardPage = async () => {
                 </p>
               </>
             )}
-            <p>
-              <span className="font-semibold">Дата создания:</span>{" "}
-              {userInfo.createdAt}
-            </p>
-            <p>
-              <span className="font-semibold">Дата обновления:</span>{" "}
-              {userInfo.updatedAt}
-            </p>
           </CardContent>
         </Card>
 

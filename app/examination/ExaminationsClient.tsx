@@ -24,7 +24,6 @@ interface Patient {
   name: string;
   age: number;
   diagnosis: string | null;
-  lastVisit: string | null;
   isInvited: boolean;
 }
 

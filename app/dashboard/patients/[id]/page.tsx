@@ -32,6 +32,7 @@ async function fetchPatientData(
         city: users.city,
         organization: users.organization,
         dateOfBirth: users.dateOfBirth,
+        gender: users.gender,
       })
       .from(users)
       .where(

@@ -22,7 +22,6 @@ interface Patient {
   name: string;
   age: number;
   diagnosis: string | null;
-  lastVisit: string | null;
 }
 
 const calculateAge = (iin: string, currentDate: Date = new Date()): number => {
@@ -62,7 +61,6 @@ const PatientsPage = async () => {
         id: users.id,
         name: users.fullName,
         iin: users.iin,
-        lastVisit: consultations.consultationDate,
         diagnoses: sql`string_agg(${diagnoses.description}, ', ')`.as(
           "diagnoses"
         ),
@@ -89,13 +87,6 @@ const PatientsPage = async () => {
       name: record.name,
       age: calculateAge(record.iin),
       diagnosis: record.diagnoses || "Нет диагнозов",
-      lastVisit: record.lastVisit
-        ? new Date(record.lastVisit).toLocaleDateString("ru-RU", {
-            year: "numeric",
-            month: "long",
-            day: "numeric",
-          })
-        : null,
     }));
   } catch (error) {
     console.error("Error fetching patients:", error);
@@ -121,7 +112,6 @@ const PatientsPage = async () => {
                 <TableHead>ФИО</TableHead>
                 <TableHead>Возраст</TableHead>
                 <TableHead>Диагноз</TableHead>
-                <TableHead>Последний визит</TableHead>
                 <TableHead>Действия</TableHead>
               </TableRow>
             </TableHeader>
@@ -138,7 +128,6 @@ const PatientsPage = async () => {
                     <TableCell>{patient.name}</TableCell>
                     <TableCell>{patient.age}</TableCell>
                     <TableCell>{patient.diagnosis}</TableCell>
-                    <TableCell>{patient.lastVisit || "Нет данных"}</TableCell>
                     <TableCell>
                       <Button variant="outline" size="sm" asChild>
                         <Link href={`/dashboard/patients/${patient.id}`}>

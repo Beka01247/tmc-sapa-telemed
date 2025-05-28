@@ -106,7 +106,6 @@ export async function GET(request: Request) {
         id: users.id,
         name: users.fullName,
         iin: users.iin,
-        lastVisit: sql`MAX(${consultations.consultationDate})`,
         diagnoses: sql`STRING_AGG(DISTINCT ${diagnoses.description}, ', ')`,
         invitationId: invitations.id,
       })

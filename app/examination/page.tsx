@@ -8,7 +8,7 @@ import {
   riskGroups,
   invitations,
 } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, ilike } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 import { UserType } from "@/constants/userTypes";
 import { ExaminationsClient } from "./ExaminationsClient";
@@ -136,7 +136,7 @@ async function fetchPatients(
   }
 }
 
-export default async function ExaminationsPage() {
+const ExaminationsPage = async () => {
   const session = await auth();
 
   if (!session || !session.user) {
@@ -164,4 +164,6 @@ export default async function ExaminationsPage() {
       city={session.user.city}
     />
   );
-}
+};
+
+export default ExaminationsPage;

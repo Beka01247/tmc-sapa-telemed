@@ -160,13 +160,6 @@ export async function GET(request: Request) {
           name: record.name,
           age: age ?? 0,
           diagnosis: record.diagnoses || "Нет диагнозов",
-          lastVisit: record.lastVisit
-            ? new Date(record.lastVisit).toLocaleDateString("ru-RU", {
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-              })
-            : null,
           isInvited: !!record.invitationId,
         };
       })

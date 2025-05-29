@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { DashboardLayout } from "@/components/layouts/DashboardLayout";
 import { UserType } from "@/constants/userTypes";
+import { ScreeningCard } from "./ScreeningCard";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -38,7 +39,7 @@ interface Patient {
   city: string;
   organization: string;
   dateOfBirth: string | null;
-  gender: "МУЖСКОЙ" | "ЖЕНСКИЙ" | "ДРУГОЙ" | null;
+  gender: "МУЖСКОЙ" | "ЖЕНСКИЙ" | null;
   diagnoses: Diagnosis[];
   riskGroups: RiskGroup[];
 }
@@ -85,6 +86,26 @@ interface Measurement {
   createdAt: string;
 }
 
+interface PatientScreening {
+  id: string;
+  screeningId: string;
+  customScreeningName: string | null;
+  scheduledDate: string;
+  status: "INVITED" | "COMPLETED" | "CONFIRMED" | "CANCELLED" | "REJECTED";
+  result: string | null;
+  notes: string | null;
+  completedAt: string | null;
+  confirmedAt: string | null;
+  confirmedBy: string | null;
+  createdAt: string;
+  screening: {
+    id: string;
+    name: string;
+    description: string | null;
+    testName: string | null;
+  };
+}
+
 interface InitialData {
   patient: Patient;
   consultations: Consultation[];
@@ -92,6 +113,7 @@ interface InitialData {
   recommendations: Recommendation[];
   files: File[];
   measurements: Measurement[];
+  screenings: PatientScreening[];
 }
 
 // Utility functions
@@ -173,7 +195,7 @@ export const PatientDetailsClient = ({
     userType === UserType.DISTRICT_DOCTOR ||
     userType === UserType.SPECIALIST_DOCTOR ||
     userType === "DOCTOR";
-  const isProvider = isDoctor || userType === UserType.NURSE;
+  const isProvider = isDoctor || userType === "NURSE";
 
   return (
     <DashboardLayout userType={userType} session={{ fullName: userName }}>
@@ -275,6 +297,15 @@ export const PatientDetailsClient = ({
           {isFemale && (
             <PregnancyCard patientId={patientId} isDoctor={isDoctor} />
           )}
+
+          <ScreeningCard
+            patientId={patientId}
+            screenings={initialData.screenings}
+            patientGender={initialData.patient.gender}
+            patientAge={parseInt(calculateAge(initialData.patient.iin), 10)}
+            onScreeningUpdated={() => window.location.reload()}
+            userType={userType}
+          />
 
           <div className="flex justify-center">
             <div className="flex flex-wrap gap-4">

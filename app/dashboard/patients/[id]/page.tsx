@@ -2,6 +2,9 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { PatientDetailsClient } from "./PatientDetailsClient";
 import { db } from "@/db/drizzle";
+import { eq } from "drizzle-orm";
+import { format } from "date-fns";
+import { UserType } from "@/constants/userTypes";
 import {
   users,
   consultations,
@@ -11,213 +14,291 @@ import {
   measurements,
   diagnoses,
   riskGroups,
+  patientScreenings,
+  screenings,
 } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
-import { UserType } from "@/constants/userTypes";
-import { DashboardLayout } from "@/components/layouts/DashboardLayout";
 
-async function fetchPatientData(
-  patientId: string,
-  organization: string,
-  city: string
-) {
-  try {
-    const [patient] = await db
-      .select({
-        id: users.id,
-        fullName: users.fullName,
-        iin: users.iin,
-        email: users.email,
-        telephone: users.telephone,
-        city: users.city,
-        organization: users.organization,
-        dateOfBirth: users.dateOfBirth,
-        gender: users.gender,
-      })
-      .from(users)
-      .where(
-        and(
-          eq(users.id, patientId),
-          eq(users.userType, "PATIENT"),
-          eq(users.organization, organization),
-          eq(users.city, city)
+async function fetchPatientData(patientId: string) {
+  const patientData = await db
+    .select({
+      id: users.id,
+      fullName: users.fullName,
+      iin: users.iin,
+      email: users.email,
+      telephone: users.telephone,
+      city: users.city,
+      organization: users.organization,
+      dateOfBirth: users.dateOfBirth,
+      gender: users.gender,
+    })
+    .from(users)
+    .where(eq(users.id, patientId))
+    .then((data) => ({
+      ...data[0],
+      dateOfBirth: data[0].dateOfBirth
+        ? format(new Date(data[0].dateOfBirth), "yyyy-MM-dd")
+        : null,
+    }));
+
+  const diagnosesData = await db
+    .select({
+      id: diagnoses.id,
+      description: diagnoses.description,
+    })
+    .from(diagnoses)
+    .where(eq(diagnoses.userId, patientId))
+    .then((data) => data || []);
+
+  const riskGroupsData = await db
+    .select({
+      id: riskGroups.id,
+      name: riskGroups.name,
+    })
+    .from(riskGroups)
+    .where(eq(riskGroups.userId, patientId))
+    .then((data) => data || []);
+
+  const treatmentsData = await db
+    .select({
+      id: treatments.id,
+      medication: treatments.medication,
+      dosage: treatments.dosage,
+      frequency: treatments.frequency,
+      duration: treatments.duration,
+      notes: treatments.notes,
+      providerName: users.fullName,
+    })
+    .from(treatments)
+    .leftJoin(users, eq(treatments.providerId, users.id))
+    .where(eq(treatments.patientId, patientId))
+    .then((data) => data || []);
+
+  const consultationsData = await db
+    .select({
+      id: consultations.id,
+      consultationDate: consultations.consultationDate,
+      notes: consultations.notes,
+      status: consultations.status,
+      providerName: users.fullName,
+    })
+    .from(consultations)
+    .leftJoin(users, eq(consultations.providerId, users.id))
+    .where(eq(consultations.patientId, patientId))
+    .then((data) =>
+      data
+        .filter(
+          (
+            consultation
+          ): consultation is typeof consultation & {
+            status: NonNullable<typeof consultation.status>;
+          } => consultation.status !== null
         )
-      );
-
-    if (!patient) {
-      throw new Error("Пациент не найден");
-    }
-
-    const consultationsData = await db
-      .select({
-        id: consultations.id,
-        consultationDate: consultations.consultationDate,
-        notes: consultations.notes,
-        status: consultations.status,
-        providerName: users.fullName,
-      })
-      .from(consultations)
-      .leftJoin(users, eq(consultations.providerId, users.id))
-      .where(eq(consultations.patientId, patientId))
-      .then((data) =>
-        data.map((consultation) => ({
+        .map((consultation) => ({
           ...consultation,
-          consultationDate: consultation.consultationDate.toISOString(),
-          status: consultation.status ?? "SCHEDULED",
+          consultationDate: format(
+            new Date(consultation.consultationDate),
+            "yyyy-MM-dd'T'HH:mm:ssXXX"
+          ),
         }))
-      )
-      .catch(() => []);
-
-    const treatmentsData = await db
-      .select({
-        id: treatments.id,
-        medication: treatments.medication,
-        dosage: treatments.dosage,
-        frequency: treatments.frequency,
-        duration: treatments.duration,
-        notes: treatments.notes,
-        providerName: users.fullName,
-      })
-      .from(treatments)
-      .leftJoin(users, eq(treatments.providerId, users.id))
-      .where(eq(treatments.patientId, patientId))
-      .catch(() => []);
-
-    const recommendationsData = await db
-      .select({
-        id: recommendations.id,
-        description: recommendations.description,
-        providerName: users.fullName,
-        createdAt: recommendations.createdAt,
-      })
-      .from(recommendations)
-      .leftJoin(users, eq(recommendations.providerId, users.id))
-      .where(eq(recommendations.patientId, patientId))
-      .then((data) =>
-        data.map((recommendation) => ({
-          ...recommendation,
-          createdAt:
-            recommendation.createdAt?.toISOString() ?? new Date().toISOString(),
-        }))
-      )
-      .catch(() => []);
-
-    const filesData = await db
-      .select({
-        id: files.id,
-        fileName: files.fileName,
-        fileUrl: files.fileUrl,
-        description: files.description,
-        uploadedBy: users.fullName,
-        createdAt: files.createdAt,
-      })
-      .from(files)
-      .leftJoin(users, eq(files.uploadedBy, users.id))
-      .where(eq(files.patientId, patientId))
-      .then((data) =>
-        data.map((file) => ({
-          ...file,
-          createdAt: file.createdAt?.toISOString() ?? new Date().toISOString(),
-        }))
-      )
-      .catch(() => []);
-
-    const measurementsData = await db
-      .select({
-        id: measurements.id,
-        type: measurements.type,
-        value1: measurements.value1,
-        value2: measurements.value2,
-        createdAt: measurements.createdAt,
-      })
-      .from(measurements)
-      .where(eq(measurements.userId, patientId))
-      .then((data) =>
-        data.map((measurement) => ({
-          ...measurement,
-          createdAt:
-            measurement.createdAt?.toISOString() ?? new Date().toISOString(),
-        }))
-      )
-      .catch(() => []);
-
-    const diagnosesData = await db
-      .select({
-        id: diagnoses.id,
-        description: diagnoses.description,
-      })
-      .from(diagnoses)
-      .where(eq(diagnoses.userId, patientId))
-      .then((data) => data || []) // Ensure array
-      .catch(() => []);
-
-    const riskGroupsData = await db
-      .select({
-        id: riskGroups.id,
-        name: riskGroups.name,
-      })
-      .from(riskGroups)
-      .where(eq(riskGroups.userId, patientId))
-      .then((data) => data || []) // Ensure array
-      .catch(() => []);
-
-    return {
-      patient: {
-        ...patient,
-        diagnoses: diagnosesData,
-        riskGroups: riskGroupsData,
-      },
-      consultations: consultationsData,
-      treatments: treatmentsData,
-      recommendations: recommendationsData,
-      files: filesData,
-      measurements: measurementsData,
-    };
-  } catch (err) {
-    throw new Error(
-      err instanceof Error
-        ? err.message
-        : "Не удалось загрузить данные пациента"
     );
-  }
+
+  const recommendationsData = await db
+    .select({
+      id: recommendations.id,
+      description: recommendations.description,
+      providerName: users.fullName,
+      createdAt: recommendations.createdAt,
+    })
+    .from(recommendations)
+    .leftJoin(users, eq(recommendations.providerId, users.id))
+    .where(eq(recommendations.patientId, patientId))
+    .then((data) =>
+      data.map((recommendation) => ({
+        ...recommendation,
+        createdAt:
+          recommendation.createdAt &&
+          format(
+            new Date(recommendation.createdAt),
+            "yyyy-MM-dd'T'HH:mm:ssXXX"
+          ),
+      }))
+    );
+
+  const filesData = await db
+    .select({
+      id: files.id,
+      fileName: files.fileName,
+      fileUrl: files.fileUrl,
+      description: files.description,
+      uploadedBy: users.fullName,
+      createdAt: files.createdAt,
+    })
+    .from(files)
+    .leftJoin(users, eq(files.uploadedBy, users.id))
+    .where(eq(files.patientId, patientId))
+    .then((data) =>
+      data.map((file) => ({
+        ...file,
+        createdAt:
+          file.createdAt &&
+          format(new Date(file.createdAt), "yyyy-MM-dd'T'HH:mm:ssXXX"),
+      }))
+    );
+
+  const measurementsData = await db
+    .select({
+      id: measurements.id,
+      type: measurements.type,
+      value1: measurements.value1,
+      value2: measurements.value2,
+      createdAt: measurements.createdAt,
+    })
+    .from(measurements)
+    .where(eq(measurements.userId, patientId))
+    .then((data) =>
+      data.map((measurement) => ({
+        ...measurement,
+        createdAt:
+          measurement.createdAt &&
+          format(new Date(measurement.createdAt), "yyyy-MM-dd'T'HH:mm:ssXXX"),
+      }))
+    );
+
+  const patientScreeningsData = await db
+    .select({
+      id: patientScreenings.id,
+      screeningId: patientScreenings.screeningId,
+      customScreeningName: patientScreenings.customScreeningName,
+      scheduledDate: patientScreenings.scheduledDate,
+      status: patientScreenings.status,
+      result: patientScreenings.result,
+      notes: patientScreenings.notes,
+      completedAt: patientScreenings.completedAt,
+      confirmedAt: patientScreenings.confirmedAt,
+      confirmedBy: patientScreenings.confirmedBy,
+      createdAt: patientScreenings.createdAt,
+      screening: {
+        id: screenings.id,
+        name: screenings.name,
+        description: screenings.description,
+        testName: screenings.testName,
+      },
+    })
+    .from(patientScreenings)
+    .leftJoin(screenings, eq(patientScreenings.screeningId, screenings.id))
+    .where(eq(patientScreenings.patientId, patientId))
+    .then((data) =>
+      data
+        .filter(
+          (
+            screening
+          ): screening is typeof screening & {
+            screeningId: string;
+            status: NonNullable<typeof screening.status>;
+            screening: NonNullable<typeof screening.screening>;
+          } =>
+            screening.screeningId !== null &&
+            screening.screening !== null &&
+            screening.status !== null
+        )
+        .map((screening) => ({
+          ...screening,
+          scheduledDate: format(
+            new Date(screening.scheduledDate),
+            "yyyy-MM-dd'T'HH:mm:ssXXX"
+          ),
+          completedAt:
+            screening.completedAt &&
+            format(new Date(screening.completedAt), "yyyy-MM-dd'T'HH:mm:ssXXX"),
+          confirmedAt:
+            screening.confirmedAt &&
+            format(new Date(screening.confirmedAt), "yyyy-MM-dd'T'HH:mm:ssXXX"),
+          createdAt:
+            screening.createdAt &&
+            format(new Date(screening.createdAt), "yyyy-MM-dd'T'HH:mm:ssXXX"),
+        }))
+    );
+
+  return {
+    patient: {
+      ...patientData,
+      diagnoses: diagnosesData,
+      riskGroups: riskGroupsData,
+    },
+    treatments: treatmentsData,
+    consultations: consultationsData,
+    recommendations: recommendationsData,
+    files: filesData,
+    measurements: measurementsData,
+    screenings: patientScreeningsData,
+  };
 }
 
-export default async function PatientDetailsPage({
-  params,
-}: {
+interface Props {
   params: { id: string };
-}) {
+}
+
+export default async function PatientDetailsPage({ params }: Props) {
   const session = await auth();
 
-  if (!session || !session.user?.id) {
+  if (!session || !session.user) {
     redirect("/sign-in");
   }
 
-  try {
-    const data = await fetchPatientData(
-      params.id,
-      session.user.organization,
-      session.user.city
-    );
+  // Cast userType to the correct enum and handle string literals
+  const userTypeString = session.user.userType as string;
+  let userType: UserType;
 
-    return (
-      <PatientDetailsClient
-        initialData={data}
-        userType={(session.user.userType as UserType) || "DOCTOR"}
-        userName={session.user.fullName || "Пользователь"}
-        patientId={params.id}
-      />
-    );
-  } catch (err) {
-    return (
-      <DashboardLayout
-        userType={(session.user?.userType as UserType) || "DOCTOR"}
-        session={{ fullName: session.user?.fullName || "Ошибка" }}
-      >
-        <div className="text-red-600 text-center">
-          {err instanceof Error ? err.message : "Пациент не найден"}
-        </div>
-      </DashboardLayout>
-    );
+  if (Object.values(UserType).includes(userTypeString as UserType)) {
+    userType = userTypeString as UserType;
+  } else {
+    switch (userTypeString) {
+      case "DOCTOR":
+        userType = UserType.DISTRICT_DOCTOR;
+        break;
+      case "SPECIALIST_DOCTOR":
+        userType = UserType.SPECIALIST_DOCTOR;
+        break;
+      case "NURSE":
+        userType = UserType.NURSE;
+        break;
+      default:
+        userType = UserType.PATIENT;
+    }
   }
+
+  const data = await fetchPatientData(params.id);
+
+  // Ensure all timestamps are non-null
+  const typeSafeData = {
+    ...data,
+    recommendations: data.recommendations.map((rec) => ({
+      ...rec,
+      createdAt:
+        rec.createdAt ?? format(new Date(), "yyyy-MM-dd'T'HH:mm:ssXXX"),
+    })),
+    files: data.files.map((file) => ({
+      ...file,
+      createdAt:
+        file.createdAt ?? format(new Date(), "yyyy-MM-dd'T'HH:mm:ssXXX"),
+    })),
+    measurements: data.measurements.map((m) => ({
+      ...m,
+      createdAt: m.createdAt ?? format(new Date(), "yyyy-MM-dd'T'HH:mm:ssXXX"),
+    })),
+    screenings: data.screenings.map((screening) => ({
+      ...screening,
+      createdAt:
+        screening.createdAt ?? format(new Date(), "yyyy-MM-dd'T'HH:mm:ssXXX"),
+    })),
+  };
+
+  return (
+    <PatientDetailsClient
+      initialData={typeSafeData}
+      userType={userType}
+      userName={session.user.fullName}
+      patientId={params.id}
+    />
+  );
 }

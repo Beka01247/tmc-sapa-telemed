@@ -3,11 +3,13 @@ export enum UserType {
   SPECIALIST_DOCTOR = "SPECIALIST_DOCTOR", // Узкий специалист
   NURSE = "NURSE", // Медсестра
   PATIENT = "PATIENT", // Пациент
+  DOCTOR = "DOCTOR",
 }
 
 export const userTypeLabels = {
   [UserType.DISTRICT_DOCTOR]: "Участковый врач (ВОП, терапевт, педиатр)",
   [UserType.SPECIALIST_DOCTOR]: "Узкий специалист",
+  [UserType.DOCTOR]: "Доктор",
   [UserType.NURSE]: "Медсестра",
   [UserType.PATIENT]: "Пациент",
 };

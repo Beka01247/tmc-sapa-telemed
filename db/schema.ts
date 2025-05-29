@@ -6,6 +6,8 @@ import {
   timestamp,
   text,
   date,
+  integer,
+  boolean,
 } from "drizzle-orm/pg-core";
 
 export const genderEnum = pgEnum("gender", ["МУЖСКОЙ", "ЖЕНСКИЙ", "ЖЕНСКИЙ"]);
@@ -38,6 +40,14 @@ export const invitationStatusEnum = pgEnum("invitationStatus", [
   "PENDING",
   "ACCEPTED",
   "DECLINED",
+]);
+
+export const screeningStatusEnum = pgEnum("screeningStatus", [
+  "INVITED", // Doctor sent invitation
+  "COMPLETED", // Patient marked as completed
+  "CONFIRMED", // Doctor confirmed completion
+  "CANCELLED", // Patient cancelled
+  "REJECTED", // Doctor rejected completion
 ]);
 
 export const users = pgTable("users", {
@@ -178,4 +188,38 @@ export const pregnancies = pgTable("pregnancies", {
   status: varchar("status", { length: 32 }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
+export const screenings = pgTable("screenings", {
+  id: uuid("id").notNull().primaryKey().defaultRandom(),
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  gender: genderEnum("gender"), // NULL if for men and woman
+  minAge: integer("min_age"),
+  maxAge: integer("max_age"),
+  frequency: varchar("frequency", { length: 32 }),
+  years: text("years"), // if user's age is in this list, screening is applicable
+  testName: varchar("test_name", { length: 255 }),
+  isRiskGroup: boolean("is_risk_group").default(false),
+});
+
+export const patientScreenings = pgTable("patient_screenings", {
+  id: uuid("id").notNull().primaryKey().defaultRandom(),
+  patientId: uuid("patient_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  screeningId: uuid("screening_id").references(() => screenings.id, {
+    onDelete: "set null",
+  }), // Can be null for custom
+  customScreeningName: varchar("custom_screening_name", { length: 255 }), // Only used if screeningId is null
+  scheduledDate: date("scheduled_date").notNull(),
+  status: screeningStatusEnum("status").default("INVITED"),
+  result: text("result"),
+  notes: text("notes"),
+  completedAt: timestamp("completed_at", { withTimezone: true }),
+  confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
+  confirmedBy: uuid("confirmed_by").references(() => users.id, {
+    onDelete: "set null",
+  }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 });

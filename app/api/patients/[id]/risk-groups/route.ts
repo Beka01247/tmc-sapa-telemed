@@ -19,7 +19,11 @@ export async function POST(
 ) {
   try {
     const session = await auth();
-    if (!session || !session.user?.id || session.user.userType !== "DOCTOR") {
+    if (
+      !session ||
+      !session.user?.id ||
+      !["DOCTOR", "NURSE"].includes(session.user.userType)
+    ) {
       return NextResponse.json(
         { error: "Неавторизованный доступ" },
         { status: 401 }
@@ -72,7 +76,11 @@ export async function PUT(
 ) {
   try {
     const session = await auth();
-    if (!session || !session.user?.id || session.user.userType !== "DOCTOR") {
+    if (
+      !session ||
+      !session.user?.id ||
+      !["DOCTOR", "NURSE"].includes(session.user.userType)
+    ) {
       return NextResponse.json(
         { error: "Неавторизованный доступ" },
         { status: 401 }
@@ -134,7 +142,11 @@ export async function PATCH(
 ) {
   try {
     const session = await auth();
-    if (!session || !session.user?.id || session.user.userType !== "DOCTOR") {
+    if (
+      !session ||
+      !session.user?.id ||
+      !["DOCTOR", "NURSE"].includes(session.user.userType)
+    ) {
       return NextResponse.json(
         { error: "Неавторизованный доступ" },
         { status: 401 }
@@ -194,7 +206,11 @@ export async function DELETE(
 ) {
   try {
     const session = await auth();
-    if (!session || !session.user?.id || session.user.userType !== "DOCTOR") {
+    if (
+      !session ||
+      !session.user?.id ||
+      !["DOCTOR", "NURSE"].includes(session.user.userType)
+    ) {
       return NextResponse.json(
         { error: "Неавторизованный доступ" },
         { status: 401 }

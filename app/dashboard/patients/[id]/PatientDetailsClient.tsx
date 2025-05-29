@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { DashboardLayout } from "@/components/layouts/DashboardLayout";
 import { UserType } from "@/constants/userTypes";
+import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -16,6 +17,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { EditDiagnosesModal } from "./EditDiagnosesModal";
 import { EditRiskGroupsModal } from "./EditRiskGroupsModal";
 import { toast } from "sonner";
+import { PregnancyCard } from "./PregnancyCard";
 
 interface Diagnosis {
   id: string;
@@ -92,37 +94,24 @@ interface InitialData {
   measurements: Measurement[];
 }
 
-interface PatientDetailsClientProps {
-  initialData: InitialData;
-  userType: UserType;
-  userName: string;
-  patientId: string;
-}
-
-const calculateAge = (iin: string, currentDate: Date = new Date()): number => {
+// Utility functions
+const calculateAge = (iin: string, currentDate = new Date()): string => {
   const year = parseInt(iin.slice(0, 2), 10);
   const month = parseInt(iin.slice(2, 4), 10) - 1;
   const day = parseInt(iin.slice(4, 6), 10);
+
   const fullYear = year < 50 ? 2000 + year : 1900 + year;
   const birthDate = new Date(fullYear, month, day);
-  let age = currentDate.getFullYear() - birthDate.getFullYear();
-  const monthDiff = currentDate.getMonth() - birthDate.getMonth();
-  if (
-    monthDiff < 0 ||
-    (monthDiff === 0 && currentDate.getDate() < birthDate.getDate())
-  ) {
-    age--;
-  }
-  return age;
+
+  const ageInMilliseconds = currentDate.getTime() - birthDate.getTime();
+  const ageInYears = Math.floor(ageInMilliseconds / 31557600000); // Approximate milliseconds in a year
+
+  return `${ageInYears} лет`;
 };
 
-const formatDate = (dateString: string | null): string => {
-  if (!dateString) return "Не указана";
-  return new Date(dateString).toLocaleDateString("ru-RU", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
+const formatDate = (date: string | null): string => {
+  if (!date) return "Не указана";
+  return format(new Date(date), "dd.MM.yyyy");
 };
 
 const formatGender = (
@@ -136,7 +125,7 @@ const formatGender = (
     case "ДРУГОЙ":
       return "Другое";
     default:
-      return "Неизвестно";
+      return "Не указан";
   }
 };
 
@@ -145,7 +134,12 @@ export const PatientDetailsClient = ({
   userType,
   userName,
   patientId,
-}: PatientDetailsClientProps) => {
+}: {
+  initialData: InitialData;
+  userType: UserType;
+  userName: string;
+  patientId: string;
+}) => {
   const router = useRouter();
   const [selectedTab, setSelectedTab] = useState<
     | "consultations"
@@ -160,22 +154,26 @@ export const PatientDetailsClient = ({
   const [isDiagnosisModalOpen, setIsDiagnosisModalOpen] = useState(false);
   const [isRiskGroupModalOpen, setIsRiskGroupModalOpen] = useState(false);
 
-  const isProvider = ["DOCTOR", "NURSE"].includes(userType);
-  const isDoctor = userType === "DOCTOR";
-
   const handleGoBack = () => {
     router.push("/dashboard/patients");
   };
 
-  const handleSaveDiagnoses = (updatedDiagnoses: Diagnosis[]) => {
-    initialData.patient.diagnoses = updatedDiagnoses;
+  const handleSaveDiagnoses = (diagnoses: Diagnosis[]) => {
+    initialData.patient.diagnoses = diagnoses;
     toast.success("Диагнозы обновлены");
   };
 
-  const handleSaveRiskGroups = (updatedRiskGroups: RiskGroup[]) => {
-    initialData.patient.riskGroups = updatedRiskGroups;
+  const handleSaveRiskGroups = (riskGroups: RiskGroup[]) => {
+    initialData.patient.riskGroups = riskGroups;
     toast.success("Группы риска обновлены");
   };
+
+  const isFemale = initialData.patient.gender === "ЖЕНСКИЙ";
+  const isDoctor =
+    userType === UserType.DISTRICT_DOCTOR ||
+    userType === UserType.SPECIALIST_DOCTOR ||
+    userType === "DOCTOR";
+  const isProvider = isDoctor || userType === UserType.NURSE;
 
   return (
     <DashboardLayout userType={userType} session={{ fullName: userName }}>
@@ -273,6 +271,10 @@ export const PatientDetailsClient = ({
               </p>
             </CardContent>
           </Card>
+
+          {isFemale && (
+            <PregnancyCard patientId={patientId} isDoctor={isDoctor} />
+          )}
 
           <div className="flex justify-center">
             <div className="flex flex-wrap gap-4">

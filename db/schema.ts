@@ -167,3 +167,15 @@ export const invitations = pgTable("invitations", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });
+
+export const pregnancies = pgTable("pregnancies", {
+  id: uuid("id").notNull().primaryKey().defaultRandom(),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  lmp: date("lmp").notNull(),
+  notes: text("notes"),
+  status: varchar("status", { length: 32 }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});

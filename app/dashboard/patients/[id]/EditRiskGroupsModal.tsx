@@ -40,18 +40,26 @@ export const EditRiskGroupsModal = ({
       return;
     }
 
+    // Don't allow adding pregnancy as a risk group
+    if (newRiskGroup.trim().toLowerCase() === "беременность") {
+      toast.error("Беременность теперь отслеживается отдельно");
+      return;
+    }
+
     try {
       const response = await fetch(`/api/patients/${patientId}/risk-groups`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newRiskGroup.trim() }),
+        body: JSON.stringify({
+          name: newRiskGroup.trim(),
+        }),
       });
 
       if (!response.ok) {
         throw new Error("Не удалось добавить группу риска");
       }
 
-      const addedRiskGroup: RiskGroup = await response.json();
+      const addedRiskGroup = await response.json();
       setRiskGroups([...riskGroups, addedRiskGroup]);
       setNewRiskGroup("");
       toast.success("Группа добавлена");
@@ -67,6 +75,12 @@ export const EditRiskGroupsModal = ({
       return;
     }
 
+    // Don't allow updating to pregnancy
+    if (name.trim().toLowerCase() === "беременность") {
+      toast.error("Беременность теперь отслеживается отдельно");
+      return;
+    }
+
     const riskGroup = riskGroups[index];
     if (!riskGroup.id) {
       toast.error("Неверный ID группы");
@@ -77,14 +91,17 @@ export const EditRiskGroupsModal = ({
       const response = await fetch(`/api/patients/${patientId}/risk-groups`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: riskGroup.id, name: name.trim() }),
+        body: JSON.stringify({
+          id: riskGroup.id,
+          name: name.trim(),
+        }),
       });
 
       if (!response.ok) {
         throw new Error("Не удалось обновить группу риска");
       }
 
-      const updatedRiskGroup: RiskGroup = await response.json();
+      const updatedRiskGroup = await response.json();
       const newRiskGroups = [...riskGroups];
       newRiskGroups[index] = updatedRiskGroup;
       setRiskGroups(newRiskGroups);
@@ -153,7 +170,7 @@ export const EditRiskGroupsModal = ({
           ) : (
             <p className="text-gray-500">Группы отсутствуют</p>
           )}
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col gap-2">
             <Input
               value={newRiskGroup}
               onChange={(e) => setNewRiskGroup(e.target.value)}

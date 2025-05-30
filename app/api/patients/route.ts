@@ -79,6 +79,14 @@ export async function GET(request: Request) {
       noRiskGroupFilter: searchParams.get("noRiskGroupFilter") ?? undefined,
     });
 
+    type QueryResult = {
+      id: string;
+      name: string;
+      iin: string;
+      diagnoses: unknown;
+      hasInvitation?: boolean;
+    };
+
     // Age filtering for Скрининг
     const ageConditions = [];
     if (
@@ -101,25 +109,24 @@ export async function GET(request: Request) {
     }
 
     // Base query
+    const selectObj = {
+      id: users.id,
+      name: users.fullName,
+      iin: users.iin,
+      diagnoses: sql`STRING_AGG(DISTINCT ${diagnoses.description}, ', ')`,
+    };
+
+    // Only add invitation status for non-ЖФВ groups
+    if (query.riskGroup !== "ЖФВ") {
+      Object.assign(selectObj, {
+        hasInvitation: sql`BOOL_OR(${invitations.id} IS NOT NULL)`, // Check if any invitation exists
+      });
+    }
+
     let baseQuery = db
-      .select({
-        id: users.id,
-        name: users.fullName,
-        iin: users.iin,
-        diagnoses: sql`STRING_AGG(DISTINCT ${diagnoses.description}, ', ')`,
-        invitationId: invitations.id,
-      })
+      .select(selectObj)
       .from(users)
-      .leftJoin(consultations, eq(consultations.patientId, users.id))
       .leftJoin(diagnoses, eq(diagnoses.userId, users.id))
-      .leftJoin(
-        invitations,
-        and(
-          eq(invitations.patientId, users.id),
-          eq(invitations.riskGroup, query.riskGroup),
-          eq(invitations.status, "PENDING")
-        )
-      )
       .where(
         and(
           eq(users.userType, "PATIENT"),
@@ -127,8 +134,19 @@ export async function GET(request: Request) {
           ilike(users.city, session.user.city),
           ...ageConditions
         )
-      )
-      .groupBy(users.id, invitations.id);
+      );
+
+    // Add invitation status join only for non-ЖФВ groups
+    if (query.riskGroup !== "ЖФВ") {
+      baseQuery = baseQuery.leftJoin(
+        invitations,
+        and(
+          eq(invitations.patientId, users.id),
+          eq(invitations.riskGroup, query.riskGroup),
+          eq(invitations.status, "PENDING")
+        )
+      );
+    }
 
     // Apply risk group filter for all groups except Скрининг
     if (query.riskGroup !== "Скрининг") {
@@ -141,7 +159,12 @@ export async function GET(request: Request) {
       );
     }
 
-    const patientRecords = await baseQuery;
+    // Group by the necessary fields
+    const patientRecords = await baseQuery.groupBy(
+      users.id,
+      users.fullName,
+      users.iin
+    );
 
     const patients = patientRecords
       .map((record) => {
@@ -159,7 +182,9 @@ export async function GET(request: Request) {
           name: record.name,
           age: age ?? 0,
           diagnosis: record.diagnoses || "Нет диагнозов",
-          isInvited: !!record.invitationId,
+          // For ЖФВ, we don't need invitation status
+          isInvited:
+            query.riskGroup === "ЖФВ" ? undefined : record.hasInvitation,
         };
       })
       .filter(

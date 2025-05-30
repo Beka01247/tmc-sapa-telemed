@@ -24,7 +24,7 @@ interface Patient {
   name: string;
   age: number;
   diagnosis: string | null;
-  isInvited: boolean;
+  isInvited?: boolean;
 }
 
 interface ExaminationsClientProps {
@@ -137,13 +137,16 @@ export const ExaminationsClient = ({
             <TableHead>ФИО</TableHead>
             <TableHead>Возраст</TableHead>
             <TableHead>Диагноз</TableHead>
-            <TableHead>Действия</TableHead>
+            {activeTab !== "ЖФВ" && <TableHead>Действия</TableHead>}
           </TableRow>
         </TableHeader>
         <TableBody>
           {patients.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={5} className="text-center">
+              <TableCell
+                colSpan={activeTab === "ЖФВ" ? 3 : 4}
+                className="text-center"
+              >
                 Нет пациентов в группе риска
               </TableCell>
             </TableRow>
@@ -153,21 +156,23 @@ export const ExaminationsClient = ({
                 <TableCell>{patient.name}</TableCell>
                 <TableCell>{patient.age}</TableCell>
                 <TableCell>{patient.diagnosis}</TableCell>
-                <TableCell className="flex space-x-2">
-                  <Button variant="outline" size="sm" asChild>
-                    <Link href={`/dashboard/patients/${patient.id}`}>
-                      Подробнее
-                    </Link>
-                  </Button>
-                  <Button
-                    variant={patient.isInvited ? "secondary" : "default"}
-                    size="sm"
-                    onClick={() => handleInvite(patient.id)}
-                    disabled={patient.isInvited}
-                  >
-                    {patient.isInvited ? "Приглашен(а)" : "Пригласить"}
-                  </Button>
-                </TableCell>
+                {activeTab !== "ЖФВ" && (
+                  <TableCell className="flex space-x-2">
+                    <Button variant="outline" size="sm" asChild>
+                      <Link href={`/dashboard/patients/${patient.id}`}>
+                        Подробнее
+                      </Link>
+                    </Button>
+                    <Button
+                      variant={patient.isInvited ? "secondary" : "default"}
+                      size="sm"
+                      onClick={() => handleInvite(patient.id)}
+                      disabled={patient.isInvited}
+                    >
+                      {patient.isInvited ? "Приглашен(а)" : "Пригласить"}
+                    </Button>
+                  </TableCell>
+                )}
               </TableRow>
             ))
           )}
@@ -213,8 +218,8 @@ export const ExaminationsClient = ({
           {riskGroups.slice(1).map((group) => (
             <TabsContent key={group} value={group}>
               <div className="space-y-4">
-                <div className="text-center">
-                  Найдено пациентов: {patients.length}
+                <div className="text-right">
+                  Найдено пациентов: {patientCount}
                 </div>
                 {renderPatientTable()}
               </div>

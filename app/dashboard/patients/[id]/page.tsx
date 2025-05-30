@@ -16,6 +16,7 @@ import {
   riskGroups,
   patientScreenings,
   screenings,
+  fertileWomenRegister,
 } from "@/db/schema";
 
 async function fetchPatientData(patientId: string) {
@@ -219,6 +220,39 @@ async function fetchPatientData(patientId: string) {
         }))
     );
 
+  const fertileWomenData = await db
+    .select({
+      id: fertileWomenRegister.id,
+      registrationDate: fertileWomenRegister.registrationDate,
+      deregistrationDate: fertileWomenRegister.deregistrationDate,
+      reasonDeregistered: fertileWomenRegister.reasonDeregistered,
+      pregnanciesCount: fertileWomenRegister.pregnanciesCount,
+      birthsCount: fertileWomenRegister.birthsCount,
+      abortionsCount: fertileWomenRegister.abortionsCount,
+      stillbirthsCount: fertileWomenRegister.stillbirthsCount,
+      lastPregnancyDate: fertileWomenRegister.lastPregnancyDate,
+      chronicDiseases: fertileWomenRegister.chronicDiseases,
+      screeningStatus: fertileWomenRegister.screeningStatus,
+    })
+    .from(fertileWomenRegister)
+    .where(eq(fertileWomenRegister.userId, patientId))
+    .then((data) => {
+      if (data.length === 0) return null;
+      const record = data[0];
+      return {
+        ...record,
+        registrationDate:
+          record.registrationDate &&
+          format(new Date(record.registrationDate), "yyyy-MM-dd"),
+        deregistrationDate:
+          record.deregistrationDate &&
+          format(new Date(record.deregistrationDate), "yyyy-MM-dd"),
+        lastPregnancyDate:
+          record.lastPregnancyDate &&
+          format(new Date(record.lastPregnancyDate), "yyyy-MM-dd"),
+      };
+    });
+
   return {
     patient: {
       ...patientData,
@@ -231,6 +265,7 @@ async function fetchPatientData(patientId: string) {
     files: filesData,
     measurements: measurementsData,
     screenings: patientScreeningsData,
+    fertileWomenData, // Add this new field
   };
 }
 

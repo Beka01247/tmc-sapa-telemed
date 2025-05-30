@@ -8,8 +8,7 @@ import {
   riskGroups,
   invitations,
 } from "@/db/schema";
-import { eq, and, ilike } from "drizzle-orm";
-import { sql } from "drizzle-orm";
+import { SQL, sql, eq, and, ilike } from "drizzle-orm";
 import { UserType } from "@/constants/userTypes";
 import { ExaminationsClient } from "./ExaminationsClient";
 
@@ -18,7 +17,7 @@ interface Patient {
   name: string;
   age: number;
   diagnosis: string | null;
-  isInvited: boolean;
+  isInvited: boolean | undefined;
 }
 
 function calculateAge(iin: string, currentDate: Date = new Date()): number {
@@ -38,6 +37,14 @@ function calculateAge(iin: string, currentDate: Date = new Date()): number {
   return age;
 }
 
+interface PatientRecord {
+  id: string;
+  name: string;
+  iin: string;
+  diagnoses: string | null;
+  invitationId?: string;
+}
+
 async function fetchPatients(
   organization: string,
   city: string,
@@ -45,7 +52,7 @@ async function fetchPatients(
   age?: number
 ): Promise<Patient[]> {
   try {
-    const ageFilters: any[] = [];
+    const ageFilters: Array<SQL> = [];
     if (riskGroup === "Скрининг" && age !== undefined && age > 0) {
       const currentYear = new Date().getFullYear();
       const targetYearMin = currentYear - age - 1;
@@ -53,35 +60,33 @@ async function fetchPatients(
       ageFilters.push(
         sql`
           CASE
-            WHEN to_date(substring(${users.iin} from 1 for 6), 'YYMMDD') IS NOT NULL
-            THEN EXTRACT(YEAR FROM to_date(substring(${users.iin} from 1 for 6), 'YYMMDD')) BETWEEN ${targetYearMin} AND ${targetYearMax}
+            WHEN to_date(left(${users.iin}, 6), 'YYMMDD') IS NOT NULL
+            THEN EXTRACT(YEAR FROM to_date(left(${users.iin}, 6), 'YYMMDD')) BETWEEN ${targetYearMin} AND ${targetYearMax}
             ELSE FALSE
           END
         `
       );
     }
 
-    let query = db
-      .select({
-        id: users.id,
-        name: users.fullName,
-        iin: users.iin,
-        diagnoses: sql`string_agg(${diagnoses.description}, ', ')`.as(
-          "diagnoses"
-        ),
+    const selectObj = {
+      id: users.id,
+      name: users.fullName,
+      iin: users.iin,
+      diagnoses: sql`STRING_AGG(DISTINCT ${diagnoses.description}, ', ')`,
+    };
+
+    // Only include invitation status for non-ЖФВ groups
+    if (riskGroup !== "ЖФВ") {
+      Object.assign(selectObj, {
         invitationId: invitations.id,
-      })
+      });
+    }
+
+    // Base query
+    let baseQuery = db
+      .select(selectObj)
       .from(users)
-      .leftJoin(consultations, eq(consultations.patientId, users.id))
       .leftJoin(diagnoses, eq(diagnoses.userId, users.id))
-      .leftJoin(
-        invitations,
-        and(
-          eq(invitations.patientId, users.id),
-          eq(invitations.riskGroup, riskGroup),
-          eq(invitations.status, "PENDING")
-        )
-      )
       .where(
         and(
           eq(users.userType, "PATIENT"),
@@ -91,35 +96,38 @@ async function fetchPatients(
         )
       );
 
-    // Apply risk group filter only for non-Скрининг and non-Вакцинация
-    if (riskGroup !== "Скрининг" && riskGroup !== "Вакцинация") {
-      query = query
-        .innerJoin(riskGroups, eq(riskGroups.userId, users.id))
-        .where(
-          and(
-            eq(users.userType, "PATIENT"),
-            ilike(users.organization, organization),
-            ilike(users.city, city),
-            eq(riskGroups.name, riskGroup),
-            ...ageFilters
-          )
-        );
+    // Add invitation join for non-ЖФВ groups
+    if (riskGroup !== "ЖФВ") {
+      baseQuery = baseQuery.leftJoin(
+        invitations,
+        and(
+          eq(invitations.patientId, users.id),
+          eq(invitations.riskGroup, riskGroup),
+          eq(invitations.status, "PENDING")
+        )
+      );
     }
 
-    const patientRecords = await query.groupBy(
+    // Apply risk group filter for non-Скрининг groups
+    if (riskGroup !== "Скрининг") {
+      baseQuery = baseQuery.innerJoin(
+        riskGroups,
+        and(eq(riskGroups.userId, users.id), eq(riskGroups.name, riskGroup))
+      );
+    }
+
+    const patientRecords = await baseQuery.groupBy(
       users.id,
       users.fullName,
-      users.iin,
-      consultations.consultationDate,
-      invitations.id
+      users.iin
     );
 
-    return patientRecords.map((record) => ({
+    return patientRecords.map((record: PatientRecord) => ({
       id: record.id,
       name: record.name,
       age: calculateAge(record.iin),
       diagnosis: record.diagnoses || "Нет диагнозов",
-      isInvited: !!record.invitationId,
+      isInvited: riskGroup === "ЖФВ" ? undefined : !!record.invitationId,
     }));
   } catch (error) {
     console.error("Error fetching patients:", error);

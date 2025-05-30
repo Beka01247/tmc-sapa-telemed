@@ -19,15 +19,30 @@ import { EditDiagnosesModal } from "./EditDiagnosesModal";
 import { EditRiskGroupsModal } from "./EditRiskGroupsModal";
 import { toast } from "sonner";
 import { PregnancyCard } from "./PregnancyCard";
+import { FertileWomenRegisterCard } from "@/components/FertileWomenRegisterCard";
 
 interface Diagnosis {
-  id: string;
+  id?: string;
   description: string;
 }
 
 interface RiskGroup {
-  id: string;
+  id?: string;
   name: string;
+}
+
+interface FertileWomenRegister {
+  id: string;
+  registrationDate: string | null;
+  deregistrationDate: string | null;
+  reasonDeregistered: string | null;
+  pregnanciesCount: number | null;
+  birthsCount: number | null;
+  abortionsCount: number | null;
+  stillbirthsCount: number | null;
+  lastPregnancyDate: string | null;
+  chronicDiseases: string | null;
+  screeningStatus: string | null;
 }
 
 interface Patient {
@@ -114,6 +129,7 @@ interface InitialData {
   files: File[];
   measurements: Measurement[];
   screenings: PatientScreening[];
+  fertileWomenData: FertileWomenRegister | null;
 }
 
 // Utility functions
@@ -295,7 +311,12 @@ export const PatientDetailsClient = ({
           </Card>
 
           {isFemale && (
-            <PregnancyCard patientId={patientId} isDoctor={isDoctor} />
+            <>
+              <PregnancyCard patientId={patientId} isDoctor={isDoctor} />
+              {isDoctor && (
+                <FertileWomenRegisterCard data={initialData.fertileWomenData} />
+              )}
+            </>
           )}
 
           <ScreeningCard

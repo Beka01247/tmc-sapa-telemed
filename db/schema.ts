@@ -223,3 +223,22 @@ export const patientScreenings = pgTable("patient_screenings", {
   }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 });
+
+export const fertileWomenRegister = pgTable("fertile_women_register", {
+  id: uuid("id").notNull().primaryKey().defaultRandom(),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  registrationDate: date("registration_date").notNull(), // дата постановки на учет
+  deregistrationDate: date("deregistration_date"), // дата снятия с учета
+  reasonDeregistered: varchar("reason_deregistered", { length: 255 }), // причина снятия с учета
+  pregnanciesCount: integer("pregnancies_count"), // число беременностей
+  birthsCount: integer("births_count"), // число родов
+  abortionsCount: integer("abortions_count"), // число абортов
+  stillbirthsCount: integer("stillbirths_count"), // число мертворождений
+  lastPregnancyDate: date("last_pregnancy_date"), // дата последней беременности
+  chronicDiseases: text("chronic_diseases"), // хронические заболевания
+  screeningStatus: varchar("screening_status", { length: 64 }), // прошла ли скрининги (или их статус)
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});

@@ -197,7 +197,7 @@ export const PatientDetailsClient = ({
     | "files"
     | "monitoring"
     | null
-  >(null);
+  >("consultations");
   const [isRecommendationModalOpen, setIsRecommendationModalOpen] =
     useState(false);
   const [isDiagnosisModalOpen, setIsDiagnosisModalOpen] = useState(false);
@@ -242,27 +242,42 @@ export const PatientDetailsClient = ({
                 Информация о пациенте
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2">
-              <p>
-                <strong>ФИО:</strong> {initialData.patient.fullName}
-              </p>
-              <p>
-                <strong>Возраст:</strong>{" "}
-                {calculateAge(initialData.patient.iin)}
-              </p>
-              <p>
-                <strong>Дата рождения:</strong>{" "}
-                {formatDate(initialData.patient.dateOfBirth)}
-              </p>
-              <p>
-                <strong>Пол:</strong> {formatGender(initialData.patient.gender)}
-              </p>
-              <p>
-                <strong>ИИН:</strong> {initialData.patient.iin}
-              </p>
-              <div className="flex items-center justify-between">
-                <div>
-                  <strong>Группы риска:</strong>{" "}
+            <CardContent>
+              <div className="grid grid-cols-2 gap-x-8 gap-y-2 items-center pl-24">
+                <div className="col-span-1">
+                  <strong>ФИО:</strong> {initialData.patient.fullName}
+                </div>
+                <div className="col-span-1">
+                  <strong>Возраст:</strong>{" "}
+                  {calculateAge(initialData.patient.iin)}
+                </div>
+                <div className="col-span-1">
+                  <strong>Дата рождения:</strong>{" "}
+                  {formatDate(initialData.patient.dateOfBirth)}
+                </div>
+                <div className="col-span-1">
+                  <strong>Пол:</strong>{" "}
+                  {formatGender(initialData.patient.gender)}
+                </div>
+                <div className="col-span-1">
+                  <strong>ИИН:</strong> {initialData.patient.iin}
+                </div>
+                <div className="col-span-1">
+                  <strong>Email:</strong> {initialData.patient.email}
+                </div>
+                <div className="col-span-1">
+                  <strong>Телефон:</strong> {initialData.patient.telephone}
+                </div>
+                <div className="col-span-1">
+                  <strong>Город:</strong> {initialData.patient.city}
+                </div>
+                <div className="col-span-1">
+                  <strong>Организация:</strong>{" "}
+                  {initialData.patient.organization}
+                </div>
+
+                <div className="col-span-2 flex items-center gap-2">
+                  <strong>Группы риска:</strong>
                   {initialData.patient.riskGroups?.length ? (
                     <span>
                       {initialData.patient.riskGroups
@@ -272,20 +287,19 @@ export const PatientDetailsClient = ({
                   ) : (
                     <span className="text-gray-500">Нет групп риска</span>
                   )}
+                  {isDoctor && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="ml-2"
+                      onClick={() => setIsRiskGroupModalOpen(true)}
+                    >
+                      Изменить
+                    </Button>
+                  )}
                 </div>
-                {isDoctor && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setIsRiskGroupModalOpen(true)}
-                  >
-                    Изменить
-                  </Button>
-                )}
-              </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <strong>Диагнозы:</strong>{" "}
+                <div className="col-span-2 flex items-center gap-2">
+                  <strong>Диагнозы:</strong>
                   {initialData.patient.diagnoses?.length ? (
                     <span>
                       {initialData.patient.diagnoses
@@ -295,53 +309,51 @@ export const PatientDetailsClient = ({
                   ) : (
                     <span className="text-gray-500">Нет диагнозов</span>
                   )}
+                  {isDoctor && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="ml-2"
+                      onClick={() => setIsDiagnosisModalOpen(true)}
+                    >
+                      Изменить
+                    </Button>
+                  )}
                 </div>
-                {isDoctor && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setIsDiagnosisModalOpen(true)}
-                  >
-                    Изменить
-                  </Button>
-                )}
               </div>
-              <p>
-                <strong>Email:</strong> {initialData.patient.email}
-              </p>
-              <p>
-                <strong>Телефон:</strong> {initialData.patient.telephone}
-              </p>
-              <p>
-                <strong>Город:</strong> {initialData.patient.city}
-              </p>
-              <p>
-                <strong>Организация:</strong> {initialData.patient.organization}
-              </p>
             </CardContent>
           </Card>
 
-          {isFemale && (
-            <>
-              <PregnancyCard patientId={patientId} isDoctor={isDoctor} />
-              {isDoctor && (
-                <FertileWomenRegisterCard
-                  data={initialData.fertileWomenData}
-                  patientId={patientId}
-                  isEditable={isDoctor}
-                />
-              )}
-            </>
-          )}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {isFemale && (
+              <>
+                <PregnancyCard patientId={patientId} isDoctor={isDoctor} />
+                {isDoctor && (
+                  <FertileWomenRegisterCard
+                    data={initialData.fertileWomenData}
+                    patientId={patientId}
+                    isEditable={isDoctor}
+                  />
+                )}
+              </>
+            )}
+          </div>
 
-          <ScreeningCard
-            patientId={patientId}
-            screenings={initialData.screenings}
-            patientGender={initialData.patient.gender}
-            patientAge={parseInt(calculateAge(initialData.patient.iin), 10)}
-            onScreeningUpdated={() => window.location.reload()}
-            userType={userType}
-          />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <ScreeningCard
+              patientId={patientId}
+              screenings={initialData.screenings}
+              patientGender={initialData.patient.gender}
+              patientAge={parseInt(calculateAge(initialData.patient.iin), 10)}
+              onScreeningUpdated={() => window.location.reload()}
+              userType={userType}
+            />
+            <VaccinationsCard
+              patientId={patientId}
+              vaccinations={initialData.vaccinations}
+              isDoctor={isDoctor}
+            />
+          </div>
 
           <div className="flex justify-center">
             <div className="flex flex-wrap gap-4">
@@ -424,12 +436,6 @@ export const PatientDetailsClient = ({
             riskGroups={initialData.patient.riskGroups}
             patientId={patientId}
             onSave={handleSaveRiskGroups}
-          />
-
-          <VaccinationsCard
-            patientId={patientId}
-            vaccinations={initialData.vaccinations}
-            isDoctor={isDoctor}
           />
         </div>
       </TooltipProvider>

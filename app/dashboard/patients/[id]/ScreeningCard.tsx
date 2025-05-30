@@ -179,7 +179,7 @@ export const ScreeningCard = ({
           </Button>
         )}
 
-        <div className="space-y-4">
+        <div className="space-y-4 h-[300px] overflow-y-auto pr-2">
           {screenings.map((screening) => (
             <div key={screening.id} className="border rounded-lg p-4 space-y-2">
               <div className="flex justify-between items-start">

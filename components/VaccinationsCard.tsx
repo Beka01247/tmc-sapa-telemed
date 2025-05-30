@@ -63,7 +63,7 @@ export const VaccinationsCard = ({
             Нет запланированных вакцинаций
           </p>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-4 h-[300px] overflow-y-auto pr-2">
             {vaccinations.map((vaccination) => (
               <div
                 key={vaccination.id}

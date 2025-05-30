@@ -3,16 +3,26 @@ import { UserType } from "@/constants/userTypes";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
-import { Button } from "@/components/ui/button";
 import { db } from "@/db/drizzle";
-import { invitations, users } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import {
+  invitations,
+  users,
+  patientScreenings,
+  screenings,
+  patientVaccinations,
+} from "@/db/schema";
+import { eq } from "drizzle-orm";
+import { format, parse } from "date-fns";
+import { MedicalActivityCard } from "@/components/MedicalActivityCard";
 
-interface Invitation {
+interface MedicalActivity {
   id: string;
-  riskGroup: string;
-  date: string; // Formatted createdAt
-  doctor: string; // Provider's fullName
+  type: "INVITATION" | "SCREENING" | "VACCINATION";
+  title: string;
+  date: string;
+  doctor: string;
+  status: string;
+  notes?: string | null;
 }
 
 interface UserInfo {
@@ -81,58 +91,133 @@ async function fetchUserInfo(userId: string): Promise<UserInfo | null> {
   }
 }
 
-async function fetchInvitations(patientId: string): Promise<Invitation[]> {
+async function fetchMedicalActivities(
+  patientId: string
+): Promise<MedicalActivity[]> {
   try {
-    const data = await db
+    // Fetch invitations
+    const invitationsData = await db
       .select({
         id: invitations.id,
         riskGroup: invitations.riskGroup,
         createdAt: invitations.createdAt,
         doctorName: users.fullName,
+        status: invitations.status,
       })
       .from(invitations)
       .leftJoin(users, eq(users.id, invitations.providerId))
-      .where(
-        and(
-          eq(invitations.patientId, patientId),
-          eq(invitations.status, "PENDING")
-        )
-      );
+      .where(eq(invitations.patientId, patientId));
 
-    return data.map((record) => ({
-      id: record.id,
-      riskGroup: record.riskGroup,
-      date: new Date(record.createdAt).toLocaleDateString("ru-RU", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
-      doctor: record.doctorName || "Неизвестный врач",
-    }));
+    // Fetch screenings
+    const screeningsData = await db
+      .select({
+        id: patientScreenings.id,
+        screeningName: screenings.name,
+        scheduledDate: patientScreenings.scheduledDate,
+        doctorName: users.fullName,
+        status: patientScreenings.status,
+        notes: patientScreenings.notes,
+      })
+      .from(patientScreenings)
+      .leftJoin(users, eq(patientScreenings.confirmedBy, users.id))
+      .leftJoin(screenings, eq(patientScreenings.screeningId, screenings.id))
+      .where(eq(patientScreenings.patientId, patientId));
+
+    // Fetch vaccinations
+    const vaccinationsData = await db
+      .select({
+        id: patientVaccinations.id,
+        name: patientVaccinations.name,
+        scheduledDate: patientVaccinations.scheduledDate,
+        doctorName: users.fullName,
+        status: patientVaccinations.status,
+        notes: patientVaccinations.notes,
+      })
+      .from(patientVaccinations)
+      .leftJoin(users, eq(patientVaccinations.id, users.id))
+      .where(eq(patientVaccinations.patientId, patientId));
+
+    // Convert invitations to MedicalActivity
+    const invitationActivities: MedicalActivity[] = invitationsData.map(
+      (record) => ({
+        id: record.id,
+        type: "INVITATION",
+        title: record.riskGroup,
+        date: record.createdAt
+          ? format(new Date(record.createdAt), "dd.MM.yyyy HH:mm")
+          : "Дата не указана",
+        doctor: record.doctorName || "Неизвестный врач",
+        status: record.status || "PENDING",
+      })
+    );
+
+    // Convert screenings to MedicalActivity
+    const screeningActivities: MedicalActivity[] = screeningsData.map(
+      (record) => ({
+        id: record.id,
+        type: "SCREENING",
+        title: record.screeningName || "Без названия",
+        date: record.scheduledDate
+          ? format(new Date(record.scheduledDate), "dd.MM.yyyy")
+          : "Дата не указана",
+        doctor: record.doctorName || "Не назначен",
+        status: record.status || "INVITED",
+        notes: record.notes,
+      })
+    );
+
+    // Convert vaccinations to MedicalActivity
+    const vaccinationActivities: MedicalActivity[] = vaccinationsData.map(
+      (record) => ({
+        id: record.id,
+        type: "VACCINATION",
+        title: record.name || "Без названия",
+        date: record.scheduledDate
+          ? format(new Date(record.scheduledDate), "dd.MM.yyyy")
+          : "Дата не указана",
+        doctor: record.doctorName || "Не назначен",
+        status: record.status || "INVITED",
+        notes: record.notes,
+      })
+    );
+
+    // Combine all activities and sort by date
+    return [
+      ...invitationActivities,
+      ...screeningActivities,
+      ...vaccinationActivities,
+    ].sort((a, b) => {
+      const dateA =
+        a.date === "Дата не указана"
+          ? new Date(0)
+          : parse(a.date, "dd.MM.yyyy", new Date());
+      const dateB =
+        b.date === "Дата не указана"
+          ? new Date(0)
+          : parse(b.date, "dd.MM.yyyy", new Date());
+      return dateB.getTime() - dateA.getTime();
+    });
   } catch (error) {
-    console.error("Error fetching invitations:", error);
+    console.error("Error fetching medical activities:", error);
     return [];
   }
 }
 
-const formatGender = (
-  gender: "МУЖСКОЙ" | "ЖЕНСКИЙ" | "ДРУГОЙ" | null
-): string => {
+// Helper functions for formatting user data
+const formatGender = (gender: string | null) => {
   switch (gender) {
     case "МУЖСКОЙ":
-      return "М";
+      return "Мужской";
     case "ЖЕНСКИЙ":
-      return "Ж";
+      return "Женский";
     case "ДРУГОЙ":
-      return "Другое";
+      return "Другой";
     default:
-      return "Неизвестно";
+      return "Не указан";
   }
 };
 
-const formatUserType = (userType: "DOCTOR" | "NURSE" | "PATIENT"): string => {
+const formatUserType = (userType: string) => {
   switch (userType) {
     case "DOCTOR":
       return "Врач";
@@ -145,11 +230,15 @@ const formatUserType = (userType: "DOCTOR" | "NURSE" | "PATIENT"): string => {
   }
 };
 
-const formatDoctorType = (
-  doctorType: "GENERAL" | "SPECIALIST" | null
-): string => {
-  if (!doctorType) return "Не указано";
-  return doctorType === "GENERAL" ? "Общий" : "Специалист";
+const formatDoctorType = (doctorType: string | null) => {
+  switch (doctorType) {
+    case "GENERAL":
+      return "Терапевт";
+    case "SPECIALIST":
+      return "Специалист";
+    default:
+      return "Неизвестно";
+  }
 };
 
 const DashboardPage = async () => {
@@ -161,9 +250,9 @@ const DashboardPage = async () => {
 
   const userType = session.user.userType as UserType;
   const userInfo = await fetchUserInfo(session.user.id);
-  const invitations =
+  const medicalActivities =
     userType === UserType.PATIENT
-      ? await fetchInvitations(session.user.id)
+      ? await fetchMedicalActivities(session.user.id)
       : [];
 
   if (!userInfo) {
@@ -251,29 +340,13 @@ const DashboardPage = async () => {
 
         {userInfo.userType === "PATIENT" && (
           <div className="space-y-4">
-            <h3 className="text-2xl font-bold">Приглашения на анализы</h3>
-            {invitations.length === 0 ? (
+            <h3 className="text-2xl font-bold">Приглашения</h3>
+            {medicalActivities.length === 0 ? (
               <p className="text-gray-500">Нет активных приглашений</p>
             ) : (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                {invitations.map((invitation) => (
-                  <Card
-                    key={invitation.id}
-                    className="bg-gray-800 text-white border-gray-600"
-                  >
-                    <CardHeader>
-                      <CardTitle>{invitation.riskGroup}</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <p>{invitation.date}</p>
-                      <p className="text-gray-400">
-                        Доктор: {invitation.doctor}
-                      </p>
-                      <Button className="mt-4 bg-gray-600 hover:bg-gray-500">
-                        Отметить как пройдено
-                      </Button>
-                    </CardContent>
-                  </Card>
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {medicalActivities.map((activity) => (
+                  <MedicalActivityCard key={activity.id} activity={activity} />
                 ))}
               </div>
             )}

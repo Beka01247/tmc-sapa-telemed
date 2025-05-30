@@ -314,7 +314,11 @@ export const PatientDetailsClient = ({
             <>
               <PregnancyCard patientId={patientId} isDoctor={isDoctor} />
               {isDoctor && (
-                <FertileWomenRegisterCard data={initialData.fertileWomenData} />
+                <FertileWomenRegisterCard
+                  data={initialData.fertileWomenData}
+                  patientId={patientId}
+                  isEditable={isDoctor}
+                />
               )}
             </>
           )}

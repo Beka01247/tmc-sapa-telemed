@@ -1,3 +1,7 @@
+import { useState } from "react";
+import { Button } from "./ui/button";
+import { EditFertileWomenDataModal } from "./EditFertileWomenDataModal";
+
 interface FertileWomenRegisterData {
   id: string;
   registrationDate: string | null;
@@ -14,14 +18,25 @@ interface FertileWomenRegisterData {
 
 interface FertileWomenRegisterCardProps {
   data: FertileWomenRegisterData | null;
+  patientId: string;
+  isEditable?: boolean;
 }
 
 export const FertileWomenRegisterCard = ({
   data,
+  patientId,
+  isEditable = false,
 }: FertileWomenRegisterCardProps) => {
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
   if (!data) {
     return null;
   }
+
+  const handleSave = (updatedData: FertileWomenRegisterData) => {
+    // Force a page reload to reflect the changes
+    window.location.reload();
+  };
 
   return (
     <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
@@ -30,6 +45,15 @@ export const FertileWomenRegisterCard = ({
           <h3 className="text-2xl font-semibold leading-none tracking-tight">
             Регистр женщин фертильного возраста
           </h3>
+          {isEditable && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsEditModalOpen(true)}
+            >
+              Изменить
+            </Button>
+          )}
         </div>
 
         <div className="space-y-4">
@@ -109,6 +133,15 @@ export const FertileWomenRegisterCard = ({
           )}
         </div>
       </div>
+      {isEditable && (
+        <EditFertileWomenDataModal
+          isOpen={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+          data={data}
+          patientId={patientId}
+          onSave={handleSave}
+        />
+      )}
     </div>
   );
 };

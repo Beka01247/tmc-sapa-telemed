@@ -242,3 +242,17 @@ export const fertileWomenRegister = pgTable("fertile_women_register", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });
+
+export const patientVaccinations = pgTable("patient_vaccinations", {
+  id: uuid("id").notNull().primaryKey().defaultRandom(),
+  patientId: uuid("patient_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  name: varchar("name", { length: 255 }), // for custom/manual entry
+  scheduledDate: date("scheduled_date"), // date planned
+  administeredDate: date("administered_date"), // date given
+  status: screeningStatusEnum("status").default("INVITED"), // Use your existing enum for status!
+  notes: text("notes"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});

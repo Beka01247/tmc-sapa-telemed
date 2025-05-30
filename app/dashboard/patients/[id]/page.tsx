@@ -7,16 +7,17 @@ import { format } from "date-fns";
 import { UserType } from "@/constants/userTypes";
 import {
   users,
-  consultations,
+  diagnoses,
+  riskGroups,
   treatments,
+  consultations,
   recommendations,
   files,
   measurements,
-  diagnoses,
-  riskGroups,
-  patientScreenings,
   screenings,
+  patientScreenings,
   fertileWomenRegister,
+  patientVaccinations,
 } from "@/db/schema";
 
 async function fetchPatientData(patientId: string) {
@@ -253,6 +254,43 @@ async function fetchPatientData(patientId: string) {
       };
     });
 
+  const vaccinationsData = await db
+    .select({
+      id: patientVaccinations.id,
+      name: patientVaccinations.name,
+      scheduledDate: patientVaccinations.scheduledDate,
+      administeredDate: patientVaccinations.administeredDate,
+      status: patientVaccinations.status,
+      notes: patientVaccinations.notes,
+    })
+    .from(patientVaccinations)
+    .where(eq(patientVaccinations.patientId, patientId))
+    .then((data) =>
+      data
+        .filter(
+          (
+            vaccination
+          ): vaccination is typeof vaccination & {
+            status: NonNullable<typeof vaccination.status>;
+          } => vaccination.status !== null
+        )
+        .map((vaccination) => ({
+          ...vaccination,
+          scheduledDate: vaccination.scheduledDate
+            ? format(
+                new Date(vaccination.scheduledDate),
+                "yyyy-MM-dd'T'HH:mm:ssXXX"
+              )
+            : null,
+          administeredDate: vaccination.administeredDate
+            ? format(
+                new Date(vaccination.administeredDate),
+                "yyyy-MM-dd'T'HH:mm:ssXXX"
+              )
+            : null,
+        }))
+    );
+
   return {
     patient: {
       ...patientData,
@@ -266,6 +304,7 @@ async function fetchPatientData(patientId: string) {
     measurements: measurementsData,
     screenings: patientScreeningsData,
     fertileWomenData, // Add this new field
+    vaccinations: vaccinationsData,
   };
 }
 
@@ -325,6 +364,13 @@ export default async function PatientDetailsPage({ params }: Props) {
       ...screening,
       createdAt:
         screening.createdAt ?? format(new Date(), "yyyy-MM-dd'T'HH:mm:ssXXX"),
+    })),
+    vaccinations: data.vaccinations.map((vaccination) => ({
+      ...vaccination,
+      scheduledDate:
+        vaccination.scheduledDate ??
+        format(new Date(), "yyyy-MM-dd'T'HH:mm:ssXXX"),
+      administeredDate: vaccination.administeredDate,
     })),
   };
 

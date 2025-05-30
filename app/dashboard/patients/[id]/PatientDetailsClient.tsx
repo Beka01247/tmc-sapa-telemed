@@ -20,6 +20,7 @@ import { EditRiskGroupsModal } from "./EditRiskGroupsModal";
 import { toast } from "sonner";
 import { PregnancyCard } from "./PregnancyCard";
 import { FertileWomenRegisterCard } from "@/components/FertileWomenRegisterCard";
+import { VaccinationsCard } from "@/components/VaccinationsCard";
 
 interface Diagnosis {
   id?: string;
@@ -121,6 +122,15 @@ interface PatientScreening {
   };
 }
 
+interface Vaccination {
+  id: string;
+  name: string;
+  scheduledDate: string;
+  administeredDate: string | null;
+  status: "INVITED" | "COMPLETED" | "CONFIRMED" | "CANCELLED" | "REJECTED";
+  notes: string | null;
+}
+
 interface InitialData {
   patient: Patient;
   consultations: Consultation[];
@@ -130,6 +140,7 @@ interface InitialData {
   measurements: Measurement[];
   screenings: PatientScreening[];
   fertileWomenData: FertileWomenRegister | null;
+  vaccinations: Vaccination[];
 }
 
 // Utility functions
@@ -413,6 +424,12 @@ export const PatientDetailsClient = ({
             riskGroups={initialData.patient.riskGroups}
             patientId={patientId}
             onSave={handleSaveRiskGroups}
+          />
+
+          <VaccinationsCard
+            patientId={patientId}
+            vaccinations={initialData.vaccinations}
+            isDoctor={isDoctor}
           />
         </div>
       </TooltipProvider>

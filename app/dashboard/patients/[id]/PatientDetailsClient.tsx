@@ -277,7 +277,7 @@ export const PatientDetailsClient = ({
                 </div>
 
                 <div className="col-span-2 flex items-center gap-2">
-                  <strong>Группы риска:</strong>
+                  <strong>Группы:</strong>
                   {initialData.patient.riskGroups?.length ? (
                     <span>
                       {initialData.patient.riskGroups

@@ -8,7 +8,6 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
-import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 
 interface RiskGroup {
@@ -32,18 +31,12 @@ export const EditRiskGroupsModal = ({
   onSave,
 }: EditRiskGroupsModalProps) => {
   const [riskGroups, setRiskGroups] = useState<RiskGroup[]>(initialRiskGroups);
-  const [newRiskGroup, setNewRiskGroup] = useState("");
+  const ALLOWED_RISK_GROUPS = ["ПУЗ", "ДУ"];
 
-  const handleAddRiskGroup = async () => {
-    if (!newRiskGroup.trim()) {
-      toast.error("Введите действительную группу риска");
-      return;
-    }
-
-    // Don't allow adding pregnancy as a risk group
-    if (newRiskGroup.trim().toLowerCase() === "беременность") {
-      toast.error("Беременность теперь отслеживается отдельно");
-      return;
+  const handleAddRiskGroup = async (groupName: string) => {
+    // If there's an existing group, remove it first
+    if (riskGroups.length > 0) {
+      await handleRemoveRiskGroup(0);
     }
 
     try {
@@ -51,7 +44,7 @@ export const EditRiskGroupsModal = ({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: newRiskGroup.trim(),
+          name: groupName,
         }),
       });
 
@@ -60,55 +53,11 @@ export const EditRiskGroupsModal = ({
       }
 
       const addedRiskGroup = await response.json();
-      setRiskGroups([...riskGroups, addedRiskGroup]);
-      setNewRiskGroup("");
-      toast.success("Группа добавлена");
+      setRiskGroups([addedRiskGroup]); // Replace any existing groups
+      toast.success("Группа риска изменена");
     } catch (error) {
       console.error("Ошибка при добавлении группы:", error);
       toast.error("Ошибка при добавлении группы");
-    }
-  };
-
-  const handleUpdateRiskGroup = async (index: number, name: string) => {
-    if (!name.trim()) {
-      toast.error("Группа не может быть пустой");
-      return;
-    }
-
-    // Don't allow updating to pregnancy
-    if (name.trim().toLowerCase() === "беременность") {
-      toast.error("Беременность теперь отслеживается отдельно");
-      return;
-    }
-
-    const riskGroup = riskGroups[index];
-    if (!riskGroup.id) {
-      toast.error("Неверный ID группы");
-      return;
-    }
-
-    try {
-      const response = await fetch(`/api/patients/${patientId}/risk-groups`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: riskGroup.id,
-          name: name.trim(),
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Не удалось обновить группу риска");
-      }
-
-      const updatedRiskGroup = await response.json();
-      const newRiskGroups = [...riskGroups];
-      newRiskGroups[index] = updatedRiskGroup;
-      setRiskGroups(newRiskGroups);
-      toast.success("Группа обновлена");
-    } catch (error) {
-      console.error("Ошибка при обновлении группы:", error);
-      toast.error("Ошибка при обновлении группы");
     }
   };
 
@@ -153,11 +102,9 @@ export const EditRiskGroupsModal = ({
           {riskGroups.length > 0 ? (
             riskGroups.map((riskGroup, index) => (
               <div key={index} className="flex items-center gap-2">
-                <Input
-                  value={riskGroup.name}
-                  onChange={(e) => handleUpdateRiskGroup(index, e.target.value)}
-                  className="flex-1"
-                />
+                <div className="flex-1 p-2 border rounded-md bg-gray-50">
+                  {riskGroup.name}
+                </div>
                 <Button
                   variant="outline"
                   size="sm"
@@ -171,15 +118,23 @@ export const EditRiskGroupsModal = ({
             <p className="text-gray-500">Группы отсутствуют</p>
           )}
           <div className="flex flex-col gap-2">
-            <Input
-              value={newRiskGroup}
-              onChange={(e) => setNewRiskGroup(e.target.value)}
-              placeholder="Введите новую группу риска"
-              className="flex-1"
-            />
-            <Button onClick={handleAddRiskGroup}>Добавить</Button>
+            <div className="flex gap-2">
+              {ALLOWED_RISK_GROUPS.map((groupName) => (
+                <Button
+                  key={groupName}
+                  onClick={() => handleAddRiskGroup(groupName)}
+                  variant="outline"
+                  className="flex-1"
+                  disabled={riskGroups.some(
+                    (group) => group.name === groupName
+                  )}
+                >
+                  {groupName}
+                </Button>
+              ))}
+            </div>
           </div>
-          <div className="flex justify-end gap-2">
+          <div className="flex justify-end gap-2 mt-4">
             <Button variant="outline" onClick={onClose}>
               Отмена
             </Button>

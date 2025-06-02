@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { DashboardLayout } from "@/components/layouts/DashboardLayout";
+import Link from "next/link";
+import DashboardLayout from "@/components/layouts/DashboardLayout";
 import { UserType } from "@/constants/userTypes";
 import { ScreeningCard } from "./ScreeningCard";
 import { format } from "date-fns";
@@ -183,11 +184,13 @@ export const PatientDetailsClient = ({
   userType,
   userName,
   patientId,
+  userId,
 }: {
   initialData: InitialData;
   userType: UserType;
   userName: string;
   patientId: string;
+  userId: string;
 }) => {
   const router = useRouter();
   const [selectedTab, setSelectedTab] = useState<
@@ -225,7 +228,10 @@ export const PatientDetailsClient = ({
   const isProvider = isDoctor || userType === "NURSE";
 
   return (
-    <DashboardLayout userType={userType} session={{ fullName: userName }}>
+    <DashboardLayout
+      userType={userType}
+      session={{ fullName: userName, id: userId }}
+    >
       <TooltipProvider>
         <div className="space-y-6">
           <Button
@@ -244,8 +250,13 @@ export const PatientDetailsClient = ({
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 gap-x-8 gap-y-2 items-center pl-24">
-                <div className="col-span-1">
+                <div className="col-span-1 flex items-center gap-2">
                   <strong>ФИО:</strong> {initialData.patient.fullName}
+                  {isProvider && (
+                    <Button size="sm" variant="outline" asChild>
+                      <Link href={`/chat?patientId=${patientId}`}>Чат</Link>
+                    </Button>
+                  )}
                 </div>
                 <div className="col-span-1">
                   <strong>Возраст:</strong>{" "}

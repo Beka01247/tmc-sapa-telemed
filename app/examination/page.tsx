@@ -161,6 +161,7 @@ const ExaminationsPage = async () => {
       userName={session.user.fullName}
       organization={session.user.organization}
       city={session.user.city}
+      userId={session.user.id}
     />
   );
 };

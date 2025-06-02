@@ -19,6 +19,7 @@ interface NavItem {
 }
 
 interface SessionUser {
+  id?: string;
   fullName?: string;
 }
 
@@ -42,17 +43,17 @@ const nurseNavItems: NavItem[] = [
   { title: "Статистика", href: "/statistics" },
 ];
 
-const patientNavItems: NavItem[] = [
+// Function to create patient nav items with chat link containing their ID
+const getPatientNavItems = (userId: string): NavItem[] => [
   { title: "Аккаунт", href: "/dashboard" },
-  { title: "Чат с медсестрой", href: "/dashboard/chat" },
+  { title: "Чат с медсестрой", href: `/chat?patientId=${userId}` },
   { title: "Мониторинг состояния", href: "/dashboard/monitoring" },
   { title: "Лечение", href: "/dashboard/therapy" },
   { title: "Рекомендации", href: "/dashboard/recomendations" },
   { title: "Прием", href: "/dashboard/consultations" },
-  { title: "Медицинские файлы", href: "/dashboard/files" },
 ];
 
-export const DashboardLayout = ({
+const DashboardLayout = ({
   children,
   userType,
   session,
@@ -61,7 +62,7 @@ export const DashboardLayout = ({
 
   const navItems =
     userType === UserType.PATIENT
-      ? patientNavItems
+      ? getPatientNavItems(session?.id || "")
       : userType === UserType.NURSE
         ? nurseNavItems
         : doctorNavItems;
@@ -136,3 +137,5 @@ export const DashboardLayout = ({
     </div>
   );
 };
+
+export default DashboardLayout;

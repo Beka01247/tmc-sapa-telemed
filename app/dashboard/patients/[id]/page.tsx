@@ -380,6 +380,7 @@ export default async function PatientDetailsPage({ params }: Props) {
       userType={userType}
       userName={session.user.fullName}
       patientId={params.id}
+      userId={session.user.id}
     />
   );
 }

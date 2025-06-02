@@ -33,6 +33,7 @@ interface ExaminationsClientProps {
   userName: string;
   organization: string;
   city: string;
+  userId: string;
 }
 
 export const ExaminationsClient = ({
@@ -41,6 +42,7 @@ export const ExaminationsClient = ({
   userName,
   organization,
   city,
+  userId,
 }: ExaminationsClientProps) => {
   const router = useRouter();
   const [patients, setPatients] = useState<Patient[]>(initialPatients);
@@ -182,7 +184,10 @@ export const ExaminationsClient = ({
   );
 
   return (
-    <DashboardLayout userType={userType} session={{ fullName: userName }}>
+    <DashboardLayout
+      userType={userType}
+      session={{ fullName: userName, id: userId }}
+    >
       <div className="space-y-6">
         <h2 className="text-2xl font-bold">Обследования</h2>
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">

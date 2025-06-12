@@ -22,6 +22,7 @@ import { toast } from "sonner";
 import { PregnancyCard } from "./PregnancyCard";
 import { FertileWomenRegisterCard } from "@/components/FertileWomenRegisterCard";
 import { VaccinationsCard } from "@/components/VaccinationsCard";
+import NewReceptionDialog from "@/components/NewReceptionDialog";
 
 interface Diagnosis {
   id?: string;
@@ -125,11 +126,22 @@ interface PatientScreening {
 
 interface Vaccination {
   id: string;
-  name: string;
+  name: string | null;
   scheduledDate: string;
   administeredDate: string | null;
   status: "INVITED" | "COMPLETED" | "CONFIRMED" | "CANCELLED" | "REJECTED";
   notes: string | null;
+}
+
+interface Reception {
+  id: string;
+  anamnesis: string;
+  complaints: string;
+  objectiveStatus: string;
+  diagnosis: string;
+  examinations: string;
+  treatment: string;
+  createdAt: string;
 }
 
 interface InitialData {
@@ -142,6 +154,7 @@ interface InitialData {
   screenings: PatientScreening[];
   fertileWomenData: FertileWomenRegister | null;
   vaccinations: Vaccination[];
+  receptions?: Reception[];
 }
 
 // Utility functions
@@ -407,7 +420,7 @@ export const PatientDetailsClient = ({
 
           {selectedTab === "consultations" && (
             <ConsultationsTab
-              consultations={initialData.consultations}
+              receptions={initialData.receptions}
               isProvider={isProvider}
               patientId={patientId}
             />
@@ -459,6 +472,7 @@ export const PatientDetailsPageWithErrorBoundary = (props: {
   userType: UserType;
   userName: string;
   patientId: string;
+  userId: string;
 }) => (
   <ErrorBoundary>
     <PatientDetailsClient {...props} />

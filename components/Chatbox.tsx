@@ -72,7 +72,7 @@ const ChatBox: FC<ChatBoxProps> = ({ patientId, currentUser }) => {
         }));
         setMessages(messages.reverse());
       } catch (error) {
-        console.error("Error loading message history:", error);
+        console.error("Ошибка при загрузке истории сообщений:", error);
       }
     };
 
@@ -151,22 +151,22 @@ const ChatBox: FC<ChatBoxProps> = ({ patientId, currentUser }) => {
   }, [receivedMessages]);
 
   return (
-    <div className="flex flex-col h-[600px] bg-white rounded-lg shadow-lg">
+    <div className="flex flex-col h-[80vh] bg-white rounded-lg shadow-lg">
+      {/* Chat Messages Container */}
       <div className="flex-1 p-4 overflow-y-auto bg-gray-50">
-        <div className="space-y-4">
-          {messages}
-          <div ref={messageEnd}></div>
-        </div>
+        <div className="space-y-4">{messages}</div>
       </div>
+
+      {/* Text Input Area */}
       <form
         onSubmit={handleFormSubmission}
-        className="p-4 border-t border-gray-200"
+        className="p-4 border-t border-gray-200 flex-shrink-0"
       >
         <div className="flex gap-2">
           <textarea
             ref={inputBox}
             value={messageText}
-            placeholder="Type a message..."
+            placeholder="Введите сообщение..."
             onChange={(e) => setMessageText(e.target.value)}
             onKeyPress={handleKeyPress}
             className="flex-1 p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none h-[45px] min-h-[45px]"
@@ -181,7 +181,7 @@ const ChatBox: FC<ChatBoxProps> = ({ patientId, currentUser }) => {
             }`}
             disabled={messageTextIsEmpty}
           >
-            Send
+            Отправить
           </button>
         </div>
       </form>

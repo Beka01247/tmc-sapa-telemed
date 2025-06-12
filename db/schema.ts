@@ -256,3 +256,18 @@ export const patientVaccinations = pgTable("patient_vaccinations", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });
+
+export const receptions = pgTable("receptions", {
+  id: uuid("id").notNull().primaryKey().defaultRandom(),
+  patientId: uuid("patient_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  anamnesis: text("anamnesis").notNull(),
+  complaints: text("complaints").notNull(),
+  objectiveStatus: text("objective_status").notNull(),
+  diagnosis: text("diagnosis").notNull(),
+  examinations: text("examinations").notNull(),
+  treatment: text("treatment").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});

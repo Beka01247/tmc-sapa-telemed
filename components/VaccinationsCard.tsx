@@ -10,7 +10,7 @@ interface VaccinationCardProps {
   patientId: string;
   vaccinations: Array<{
     id: string;
-    name: string;
+    name: string | null;
     scheduledDate: string;
     administeredDate: string | null;
     status: "INVITED" | "COMPLETED" | "CONFIRMED" | "CANCELLED" | "REJECTED";
@@ -70,7 +70,9 @@ export const VaccinationsCard = ({
                 className="flex items-center justify-between border-b pb-2"
               >
                 <div>
-                  <p className="font-medium">{vaccination.name}</p>
+                  <p className="font-medium">
+                    {vaccination.name || "Без названия"}
+                  </p>
                   <p className="text-sm text-muted-foreground">
                     Запланировано на:{" "}
                     {format(new Date(vaccination.scheduledDate), "dd.MM.yyyy")}

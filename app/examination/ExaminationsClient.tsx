@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, useCallback } from "react";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
 import { UserType } from "@/constants/userTypes";
 import { Button } from "@/components/ui/button";
@@ -15,7 +14,6 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import Link from "next/link";
 
@@ -23,12 +21,16 @@ interface Patient {
   id: string;
   name: string;
   age: number;
-  diagnosis: string | null;
-  isInvited?: boolean;
+  diagnosis: string;
+  isInvited: boolean | undefined;
+  completedScreenings?: string;
+  completedVaccinations?: string;
+  pregnancyWeek?: number;
 }
 
 interface ExaminationsClientProps {
   initialPatients: Patient[];
+  jfvPatients: Patient[];
   userType: UserType;
   userName: string;
   organization: string;
@@ -38,13 +40,13 @@ interface ExaminationsClientProps {
 
 export const ExaminationsClient = ({
   initialPatients,
+  jfvPatients,
   userType,
   userName,
   organization,
   city,
   userId,
 }: ExaminationsClientProps) => {
-  const router = useRouter();
   const [patients, setPatients] = useState<Patient[]>(initialPatients);
   const [age, setAge] = useState<string>("");
   const [activeTab, setActiveTab] = useState<string>("Скрининг");
@@ -61,25 +63,18 @@ export const ExaminationsClient = ({
     "ПУЗ",
   ];
 
-  useEffect(() => {
-    fetchPatients();
-  }, [activeTab, age]);
-
-  const fetchPatients = async () => {
+  const fetchPatients = useCallback(async () => {
     try {
       const params = new URLSearchParams();
-
-      if (activeTab === "Скрининг") {
-        params.append("noRiskGroupFilter", "true");
-      } else {
-        params.append("riskGroup", activeTab);
-      }
+      params.append("organization", organization);
+      params.append("city", city);
+      params.append("riskGroup", activeTab);
 
       if (activeTab === "Скрининг" && age) {
         params.append("age", age);
       }
 
-      const response = await fetch(`/api/patients?${params.toString()}`);
+      const response = await fetch(`/api/examinations?${params.toString()}`);
       if (!response.ok) {
         throw new Error("Не удалось загрузить пациентов");
       }
@@ -90,34 +85,16 @@ export const ExaminationsClient = ({
       console.error("Ошибка при загрузке пациентов:", error);
       toast.error("Ошибка при загрузке пациентов");
     }
-  };
+  }, [activeTab, age, city, organization]);
 
-  const handleInvite = async (patientId: string) => {
-    try {
-      const response = await fetch("/api/invitations", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          patientId,
-          riskGroup: activeTab,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Не удалось отправить приглашение");
-      }
-
-      setPatients(
-        patients.map((p) =>
-          p.id === patientId ? { ...p, isInvited: true } : p
-        )
-      );
-      toast.success("Приглашение отправлено");
-    } catch (error) {
-      console.error("Ошибка при отправке приглашения:", error);
-      toast.error("Ошибка при отправке приглашения");
+  useEffect(() => {
+    if (activeTab === "ЖФВ") {
+      setPatients(jfvPatients);
+      setPatientCount(jfvPatients.length);
+    } else {
+      fetchPatients();
     }
-  };
+  }, [activeTab, age, jfvPatients, fetchPatients]);
 
   const handleAgeFilterChange = () => {
     const ageValue = age ? parseInt(age) : undefined;
@@ -139,42 +116,84 @@ export const ExaminationsClient = ({
             <TableHead>ФИО</TableHead>
             <TableHead>Возраст</TableHead>
             <TableHead>Диагноз</TableHead>
-            {activeTab !== "ЖФВ" && <TableHead>Действия</TableHead>}
+            {activeTab === "Скрининг" && (
+              <TableHead>Пройденные скрининги</TableHead>
+            )}
+            {activeTab === "Вакцинация" && (
+              <TableHead>Пройденные вакцинации</TableHead>
+            )}
+            {activeTab === "Беременные" && (
+              <TableHead>Неделя беременности</TableHead>
+            )}
+            <TableHead>Действия</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {patients.length === 0 ? (
             <TableRow>
               <TableCell
-                colSpan={activeTab === "ЖФВ" ? 3 : 4}
+                colSpan={
+                  ["Скрининг", "Вакцинация", "Беременные"].includes(activeTab)
+                    ? 5
+                    : activeTab === "ЖФВ"
+                      ? 3
+                      : 4
+                }
                 className="text-center"
               >
-                Нет пациентов в группе риска
+                {activeTab === "ЖФВ"
+                  ? "Нет пациентов в реестре ЖФВ"
+                  : activeTab === "Скрининг"
+                    ? "Нет пациентов для скрининга"
+                    : activeTab === "Вакцинация"
+                      ? "Нет пациентов для вакцинации"
+                      : activeTab === "Беременные"
+                        ? "Нет беременных пациентов"
+                        : "Нет пациентов в группе риска"}
               </TableCell>
             </TableRow>
           ) : (
             patients.map((patient) => (
               <TableRow key={patient.id}>
-                <TableCell>{patient.name}</TableCell>
+                <TableCell>
+                  <Link
+                    href={`/dashboard/patients/${patient.id}`}
+                    className="hover:underline"
+                  >
+                    {patient.name}
+                  </Link>
+                </TableCell>
                 <TableCell>{patient.age}</TableCell>
                 <TableCell>{patient.diagnosis}</TableCell>
-                {activeTab !== "ЖФВ" && (
-                  <TableCell className="flex space-x-2">
+                {activeTab === "Скрининг" && (
+                  <TableCell>{patient.completedScreenings}</TableCell>
+                )}
+                {activeTab === "Вакцинация" && (
+                  <TableCell>{patient.completedVaccinations}</TableCell>
+                )}
+                {activeTab === "Беременные" && (
+                  <TableCell>{patient.pregnancyWeek} недель</TableCell>
+                )}
+                <TableCell>
+                  <div className="flex space-x-2">
                     <Button variant="outline" size="sm" asChild>
                       <Link href={`/dashboard/patients/${patient.id}`}>
                         Подробнее
                       </Link>
                     </Button>
-                    <Button
-                      variant={patient.isInvited ? "secondary" : "default"}
-                      size="sm"
-                      onClick={() => handleInvite(patient.id)}
-                      disabled={patient.isInvited}
-                    >
-                      {patient.isInvited ? "Приглашен(а)" : "Пригласить"}
-                    </Button>
-                  </TableCell>
-                )}
+                    {(activeTab === "Беременные" ||
+                      activeTab === "ДУ" ||
+                      activeTab === "ЖФВ" ||
+                      activeTab === "ПУЗ") && (
+                      <Button
+                        variant={patient.isInvited ? "secondary" : "default"}
+                        size="sm"
+                      >
+                        {patient.isInvited ? "Приглашен(а)" : "Пригласить"}
+                      </Button>
+                    )}
+                  </div>
+                </TableCell>
               </TableRow>
             ))
           )}
@@ -200,7 +219,7 @@ export const ExaminationsClient = ({
           </TabsList>
           <TabsContent value="Скрининг">
             <div className="flex items-center justify-between w-full">
-              <div className="flex items-center space-x-2 mx-auto">
+              <div className="flex items-center space-x-2">
                 <span className="font-medium">Возраст:</span>
                 <Input
                   id="age"

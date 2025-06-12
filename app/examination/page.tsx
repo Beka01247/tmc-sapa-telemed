@@ -1,14 +1,5 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
-import { db } from "@/db/drizzle";
-import {
-  users,
-  consultations,
-  diagnoses,
-  riskGroups,
-  invitations,
-} from "@/db/schema";
-import { SQL, sql, eq, and, ilike } from "drizzle-orm";
 import { UserType } from "@/constants/userTypes";
 import { ExaminationsClient } from "./ExaminationsClient";
 
@@ -16,33 +7,9 @@ interface Patient {
   id: string;
   name: string;
   age: number;
-  diagnosis: string | null;
+  diagnosis: string;
   isInvited: boolean | undefined;
-}
-
-function calculateAge(iin: string, currentDate: Date = new Date()): number {
-  const year = parseInt(iin.slice(0, 2), 10);
-  const month = parseInt(iin.slice(2, 4), 10) - 1;
-  const day = parseInt(iin.slice(4, 6), 10);
-  const fullYear = year < 50 ? 2000 + year : 1900 + year;
-  const birthDate = new Date(fullYear, month, day);
-  let age = currentDate.getFullYear() - birthDate.getFullYear();
-  const monthDiff = currentDate.getMonth() - birthDate.getMonth();
-  if (
-    monthDiff < 0 ||
-    (monthDiff === 0 && currentDate.getDate() < birthDate.getDate())
-  ) {
-    age--;
-  }
-  return age;
-}
-
-interface PatientRecord {
-  id: string;
-  name: string;
-  iin: string;
-  diagnoses: string | null;
-  invitationId?: string;
+  completedScreenings: string;
 }
 
 async function fetchPatients(
@@ -52,83 +19,22 @@ async function fetchPatients(
   age?: number
 ): Promise<Patient[]> {
   try {
-    const ageFilters: Array<SQL> = [];
-    if (riskGroup === "Скрининг" && age !== undefined && age > 0) {
-      const currentYear = new Date().getFullYear();
-      const targetYearMin = currentYear - age - 1;
-      const targetYearMax = currentYear - age;
-      ageFilters.push(
-        sql`
-          CASE
-            WHEN to_date(left(${users.iin}, 6), 'YYMMDD') IS NOT NULL
-            THEN EXTRACT(YEAR FROM to_date(left(${users.iin}, 6), 'YYMMDD')) BETWEEN ${targetYearMin} AND ${targetYearMax}
-            ELSE FALSE
-          END
-        `
-      );
+    const params = new URLSearchParams({
+      organization,
+      city,
+      riskGroup,
+    });
+
+    if (age !== undefined) {
+      params.append("age", age.toString());
     }
 
-    const selectObj = {
-      id: users.id,
-      name: users.fullName,
-      iin: users.iin,
-      diagnoses: sql`STRING_AGG(DISTINCT ${diagnoses.description}, ', ')`,
-    };
-
-    // Only include invitation status for non-ЖФВ groups
-    if (riskGroup !== "ЖФВ") {
-      Object.assign(selectObj, {
-        invitationId: invitations.id,
-      });
+    const response = await fetch(`/api/examinations?${params.toString()}`);
+    if (!response.ok) {
+      throw new Error("Failed to fetch patients");
     }
 
-    // Base query
-    let baseQuery = db
-      .select(selectObj)
-      .from(users)
-      .leftJoin(diagnoses, eq(diagnoses.userId, users.id))
-      .where(
-        and(
-          eq(users.userType, "PATIENT"),
-          ilike(users.organization, organization),
-          ilike(users.city, city),
-          ...ageFilters
-        )
-      );
-
-    // Add invitation join for non-ЖФВ groups
-    if (riskGroup !== "ЖФВ") {
-      baseQuery = baseQuery.leftJoin(
-        invitations,
-        and(
-          eq(invitations.patientId, users.id),
-          eq(invitations.riskGroup, riskGroup),
-          eq(invitations.status, "PENDING")
-        )
-      );
-    }
-
-    // Apply risk group filter for non-Скрининг groups
-    if (riskGroup !== "Скрининг") {
-      baseQuery = baseQuery.innerJoin(
-        riskGroups,
-        and(eq(riskGroups.userId, users.id), eq(riskGroups.name, riskGroup))
-      );
-    }
-
-    const patientRecords = await baseQuery.groupBy(
-      users.id,
-      users.fullName,
-      users.iin
-    );
-
-    return patientRecords.map((record: PatientRecord) => ({
-      id: record.id,
-      name: record.name,
-      age: calculateAge(record.iin),
-      diagnosis: record.diagnoses || "Нет диагнозов",
-      isInvited: riskGroup === "ЖФВ" ? undefined : !!record.invitationId,
-    }));
+    return response.json();
   } catch (error) {
     console.error("Error fetching patients:", error);
     return [];
@@ -148,15 +54,16 @@ const ExaminationsPage = async () => {
     redirect("/");
   }
 
-  const patients = await fetchPatients(
-    session.user.organization,
-    session.user.city,
-    "Скрининг"
-  );
+  // Fetch both screening and ЖФВ patients initially
+  const [screeningPatients, jfvPatients] = await Promise.all([
+    fetchPatients(session.user.organization, session.user.city, "Скрининг"),
+    fetchPatients(session.user.organization, session.user.city, "ЖФВ"),
+  ]);
 
   return (
     <ExaminationsClient
-      initialPatients={patients}
+      initialPatients={screeningPatients}
+      jfvPatients={jfvPatients}
       userType={userType}
       userName={session.user.fullName}
       organization={session.user.organization}

@@ -251,7 +251,7 @@ export const patientVaccinations = pgTable("patient_vaccinations", {
   name: varchar("name", { length: 255 }), // for custom/manual entry
   scheduledDate: date("scheduled_date"), // date planned
   administeredDate: date("administered_date"), // date given
-  status: screeningStatusEnum("status").default("INVITED"), // Use your existing enum for status!
+  status: screeningStatusEnum("status").default("INVITED"),
   notes: text("notes"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),

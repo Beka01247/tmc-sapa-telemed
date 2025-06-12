@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { DashboardLayout } from "@/components/layouts/DashboardLayout";
+import Link from "next/link";
+import DashboardLayout from "@/components/layouts/DashboardLayout";
 import { UserType } from "@/constants/userTypes";
 import { ScreeningCard } from "./ScreeningCard";
 import { format } from "date-fns";
@@ -21,6 +22,7 @@ import { toast } from "sonner";
 import { PregnancyCard } from "./PregnancyCard";
 import { FertileWomenRegisterCard } from "@/components/FertileWomenRegisterCard";
 import { VaccinationsCard } from "@/components/VaccinationsCard";
+import NewReceptionDialog from "@/components/NewReceptionDialog";
 
 interface Diagnosis {
   id?: string;
@@ -124,11 +126,22 @@ interface PatientScreening {
 
 interface Vaccination {
   id: string;
-  name: string;
+  name: string | null;
   scheduledDate: string;
   administeredDate: string | null;
   status: "INVITED" | "COMPLETED" | "CONFIRMED" | "CANCELLED" | "REJECTED";
   notes: string | null;
+}
+
+interface Reception {
+  id: string;
+  anamnesis: string;
+  complaints: string;
+  objectiveStatus: string;
+  diagnosis: string;
+  examinations: string;
+  treatment: string;
+  createdAt: string;
 }
 
 interface InitialData {
@@ -141,6 +154,7 @@ interface InitialData {
   screenings: PatientScreening[];
   fertileWomenData: FertileWomenRegister | null;
   vaccinations: Vaccination[];
+  receptions?: Reception[];
 }
 
 // Utility functions
@@ -183,11 +197,13 @@ export const PatientDetailsClient = ({
   userType,
   userName,
   patientId,
+  userId,
 }: {
   initialData: InitialData;
   userType: UserType;
   userName: string;
   patientId: string;
+  userId: string;
 }) => {
   const router = useRouter();
   const [selectedTab, setSelectedTab] = useState<
@@ -225,7 +241,10 @@ export const PatientDetailsClient = ({
   const isProvider = isDoctor || userType === "NURSE";
 
   return (
-    <DashboardLayout userType={userType} session={{ fullName: userName }}>
+    <DashboardLayout
+      userType={userType}
+      session={{ fullName: userName, id: userId }}
+    >
       <TooltipProvider>
         <div className="space-y-6">
           <Button
@@ -244,8 +263,13 @@ export const PatientDetailsClient = ({
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 gap-x-8 gap-y-2 items-center pl-24">
-                <div className="col-span-1">
+                <div className="col-span-1 flex items-center gap-2">
                   <strong>ФИО:</strong> {initialData.patient.fullName}
+                  {isProvider && (
+                    <Button size="sm" variant="outline" asChild>
+                      <Link href={`/chat?patientId=${patientId}`}>Чат</Link>
+                    </Button>
+                  )}
                 </div>
                 <div className="col-span-1">
                   <strong>Возраст:</strong>{" "}
@@ -396,7 +420,7 @@ export const PatientDetailsClient = ({
 
           {selectedTab === "consultations" && (
             <ConsultationsTab
-              consultations={initialData.consultations}
+              receptions={initialData.receptions}
               isProvider={isProvider}
               patientId={patientId}
             />
@@ -448,6 +472,7 @@ export const PatientDetailsPageWithErrorBoundary = (props: {
   userType: UserType;
   userName: string;
   patientId: string;
+  userId: string;
 }) => (
   <ErrorBoundary>
     <PatientDetailsClient {...props} />

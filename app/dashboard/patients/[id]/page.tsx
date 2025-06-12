@@ -18,6 +18,7 @@ import {
   patientScreenings,
   fertileWomenRegister,
   patientVaccinations,
+  receptions,
 } from "@/db/schema";
 
 async function fetchPatientData(patientId: string) {
@@ -41,6 +42,21 @@ async function fetchPatientData(patientId: string) {
         ? format(new Date(data[0].dateOfBirth), "yyyy-MM-dd")
         : null,
     }));
+
+  const receptionsData = await db
+    .select({
+      id: receptions.id,
+      anamnesis: receptions.anamnesis,
+      complaints: receptions.complaints,
+      objectiveStatus: receptions.objectiveStatus,
+      diagnosis: receptions.diagnosis,
+      examinations: receptions.examinations,
+      treatment: receptions.treatment,
+      createdAt: receptions.createdAt,
+    })
+    .from(receptions)
+    .where(eq(receptions.patientId, patientId))
+    .then((data) => data || []);
 
   const diagnosesData = await db
     .select({
@@ -303,8 +319,15 @@ async function fetchPatientData(patientId: string) {
     files: filesData,
     measurements: measurementsData,
     screenings: patientScreeningsData,
-    fertileWomenData, // Add this new field
+    fertileWomenData,
     vaccinations: vaccinationsData,
+    receptions: receptionsData.map((reception) => ({
+      ...reception,
+      createdAt: format(
+        new Date(reception.createdAt),
+        "yyyy-MM-dd'T'HH:mm:ssXXX"
+      ),
+    })),
   };
 }
 
@@ -372,6 +395,12 @@ export default async function PatientDetailsPage({ params }: Props) {
         format(new Date(), "yyyy-MM-dd'T'HH:mm:ssXXX"),
       administeredDate: vaccination.administeredDate,
     })),
+    receptions:
+      data.receptions?.map((reception) => ({
+        ...reception,
+        createdAt:
+          reception.createdAt ?? format(new Date(), "yyyy-MM-dd'T'HH:mm:ssXXX"),
+      })) || [],
   };
 
   return (
@@ -380,6 +409,7 @@ export default async function PatientDetailsPage({ params }: Props) {
       userType={userType}
       userName={session.user.fullName}
       patientId={params.id}
+      userId={session.user.id}
     />
   );
 }

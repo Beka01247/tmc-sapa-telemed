@@ -1,4 +1,4 @@
-import { DashboardLayout } from "@/components/layouts/DashboardLayout";
+import DashboardLayout from "@/components/layouts/DashboardLayout";
 import { UserType } from "@/constants/userTypes";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { auth } from "@/auth";
@@ -259,7 +259,7 @@ const DashboardPage = async () => {
     return (
       <DashboardLayout
         userType={userType}
-        session={{ fullName: session.user.fullName }}
+        session={{ fullName: session.user.fullName, id: session.user.id }}
       >
         <div className="text-red-500">Ошибка загрузки данных пользователя</div>
       </DashboardLayout>
@@ -269,7 +269,7 @@ const DashboardPage = async () => {
   return (
     <DashboardLayout
       userType={userType}
-      session={{ fullName: session.user.fullName }}
+      session={{ fullName: session.user.fullName, id: session.user.id }}
     >
       <div className="space-y-6">
         <h2 className="text-2xl font-bold">Мой профиль</h2>

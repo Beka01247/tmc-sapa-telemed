@@ -15,41 +15,71 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
-import { AddConsultationForm } from "@/components/AddConsultationForm";
+import { format } from "date-fns";
 import { toast } from "sonner";
+import { Edit, Trash2 } from "lucide-react";
+import { NewReceptionDialog } from "@/components/NewReceptionDialog";
 
-interface Consultation {
+interface Reception {
   id: string;
-  consultationDate: string;
-  notes: string | null;
-  status: "SCHEDULED" | "COMPLETED" | "CANCELLED";
-  providerName: string | null;
+  anamnesis: string;
+  complaints: string;
+  objectiveStatus: string;
+  diagnosis: string;
+  examinations: string;
+  treatment: string;
+  createdAt: string;
 }
 
 interface ConsultationsTabProps {
-  consultations: Consultation[];
+  receptions?: Reception[];
   isProvider: boolean;
   patientId: string;
 }
 
 export const ConsultationsTab = ({
-  consultations,
+  receptions = [],
   isProvider,
   patientId,
 }: ConsultationsTabProps) => {
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [viewingReception, setViewingReception] = useState<Reception | null>(
+    null
+  );
+  const [editingReception, setEditingReception] = useState<Reception | null>(
+    null
+  );
+  const [isAddingReception, setIsAddingReception] = useState(false);
 
-  const handleAddSuccess = async () => {
-    setIsModalOpen(false);
-    toast.success("Прием добавлен");
-    // Trigger page refresh
+  const formatDate = (date: string) => {
+    return format(new Date(date), "dd.MM.yyyy HH:mm");
+  };
+
+  const handleEdit = (reception: Reception, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingReception(reception);
+  };
+
+  const handleDelete = async (receptionId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      const response = await fetch(`/api/receptions?id=${receptionId}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) throw new Error("Failed to delete reception");
+
+      toast.success("Прием успешно удален");
+      window.location.reload();
+    } catch (error) {
+      toast.error("Не удалось удалить прием");
+      console.error("Error deleting reception:", error);
+    }
+  };
+
+  const onReceptionChange = () => {
     window.location.reload();
   };
 
@@ -59,29 +89,9 @@ export const ConsultationsTab = ({
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Приемы</CardTitle>
           {isProvider && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setIsModalOpen(true)}
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Добавить прием</TooltipContent>
-            </Tooltip>
+            <Button onClick={() => setIsAddingReception(true)}>
+              Добавить прием
+            </Button>
           )}
         </CardHeader>
         <CardContent>
@@ -89,37 +99,67 @@ export const ConsultationsTab = ({
             <TableHeader>
               <TableRow>
                 <TableHead>Дата</TableHead>
-                <TableHead>Статус</TableHead>
-                <TableHead>Врач</TableHead>
-                <TableHead>Заметки</TableHead>
+                <TableHead>Анамнез</TableHead>
+                <TableHead>Жалобы</TableHead>
+                <TableHead>Объективный статус</TableHead>
+                <TableHead>Обследования</TableHead>
+                {isProvider && (
+                  <TableHead className="w-[100px]">Действия</TableHead>
+                )}
               </TableRow>
             </TableHeader>
             <TableBody>
-              {consultations.length === 0 ? (
+              {receptions.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center">
+                  <TableCell
+                    colSpan={isProvider ? 6 : 5}
+                    className="text-center"
+                  >
                     Нет данных
                   </TableCell>
                 </TableRow>
               ) : (
-                consultations.map((consultation) => (
-                  <TableRow key={consultation.id}>
+                receptions.map((reception) => (
+                  <TableRow
+                    key={reception.id}
+                    className="cursor-pointer hover:bg-gray-100"
+                    onClick={() => setViewingReception(reception)}
+                  >
+                    <TableCell>{formatDate(reception.createdAt)}</TableCell>
                     <TableCell>
-                      {new Date(
-                        consultation.consultationDate
-                      ).toLocaleDateString("ru-RU")}
+                      {reception.anamnesis.slice(0, 30)}
+                      {reception.anamnesis.length > 30 ? "..." : ""}
                     </TableCell>
                     <TableCell>
-                      {consultation.status === "SCHEDULED"
-                        ? "Запланировано"
-                        : consultation.status === "COMPLETED"
-                          ? "Завершено"
-                          : "Отменено"}
+                      {reception.complaints.slice(0, 30)}
+                      {reception.complaints.length > 30 ? "..." : ""}
                     </TableCell>
                     <TableCell>
-                      {consultation.providerName || "Не указан"}
+                      {reception.objectiveStatus.slice(0, 30)}
+                      {reception.objectiveStatus.length > 30 ? "..." : ""}
                     </TableCell>
-                    <TableCell>{consultation.notes || "Нет"}</TableCell>
+                    <TableCell>
+                      {reception.examinations.slice(0, 30)}
+                      {reception.examinations.length > 30 ? "..." : ""}
+                    </TableCell>
+                    {isProvider && (
+                      <TableCell className="flex gap-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={(e) => handleEdit(reception, e)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={(e) => handleDelete(reception.id, e)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))
               )}
@@ -128,18 +168,59 @@ export const ConsultationsTab = ({
         </CardContent>
       </Card>
 
-      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Добавить прием</DialogTitle>
-          </DialogHeader>
-          <AddConsultationForm
-            patientId={patientId}
-            onSuccess={handleAddSuccess}
-            onCancel={() => setIsModalOpen(false)}
-          />
-        </DialogContent>
-      </Dialog>
+      {viewingReception && (
+        <Dialog open={true} onOpenChange={() => setViewingReception(null)}>
+          <DialogContent className="max-w-3xl">
+            <DialogHeader>
+              <DialogTitle>Детали приема</DialogTitle>
+              <DialogDescription>
+                {formatDate(viewingReception.createdAt)}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <h4 className="font-medium mb-2">Анамнез:</h4>
+                <p className="text-sm">{viewingReception.anamnesis}</p>
+              </div>
+              <div>
+                <h4 className="font-medium mb-2">Жалобы:</h4>
+                <p className="text-sm">{viewingReception.complaints}</p>
+              </div>
+              <div>
+                <h4 className="font-medium mb-2">Объективный статус:</h4>
+                <p className="text-sm">{viewingReception.objectiveStatus}</p>
+              </div>
+              <div>
+                <h4 className="font-medium mb-2">Диагноз:</h4>
+                <p className="text-sm">{viewingReception.diagnosis}</p>
+              </div>
+              <div>
+                <h4 className="font-medium mb-2">Обследования:</h4>
+                <p className="text-sm">{viewingReception.examinations}</p>
+              </div>
+              <div>
+                <h4 className="font-medium mb-2">Лечение:</h4>
+                <p className="text-sm">{viewingReception.treatment}</p>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {(editingReception || isAddingReception) && (
+        <NewReceptionDialog
+          isOpen={true}
+          onOpenChange={(open: boolean) => {
+            if (!open) {
+              setEditingReception(null);
+              setIsAddingReception(false);
+            }
+          }}
+          patientId={patientId}
+          initialData={editingReception || undefined}
+          onSuccess={onReceptionChange}
+        />
+      )}
     </>
   );
 };

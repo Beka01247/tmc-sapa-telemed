@@ -79,12 +79,7 @@ export const ExaminationsClient = ({
         throw new Error("Не удалось загрузить пациентов");
       }
       const data = await response.json();
-      console.log("Fetched patients:", data);
-      // Ensure each patient has an isInvited property
       const patientsWithInvitation = data.map((patient: Patient) => {
-        if (activeTab === "Беременные") {
-          console.log("Patient in Беременные:", patient);
-        }
         return {
           ...patient,
           isInvited: !!patient.isInvited,
@@ -99,11 +94,9 @@ export const ExaminationsClient = ({
   }, [activeTab, age, city, organization]);
 
   useEffect(() => {
-    console.log("[Examinations] Active tab:", activeTab);
     if (activeTab === "ЖФВ") {
       setPatients(jfvPatients);
       setPatientCount(jfvPatients.length);
-      console.log("[Examinations] ЖФВ patients:", jfvPatients);
     } else {
       fetchPatients();
     }
@@ -204,12 +197,6 @@ export const ExaminationsClient = ({
               </TableRow>
             ) : (
               patients.map((patient) => {
-                if (activeTab === "Беременные") {
-                  console.log(
-                    "[Examinations] Patient in 'Беременные':",
-                    patient
-                  );
-                }
                 return (
                   <TableRow key={patient.id}>
                     <TableCell>

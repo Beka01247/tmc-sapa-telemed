@@ -1,10 +1,15 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db/drizzle";
-import { users, invitations } from "@/db/schema";
-import { eq, and, ilike } from "drizzle-orm";
+import {
+  users,
+  invitations,
+  invitationStatusEnum,
+  pregnancies,
+  fertileWomenRegister,
+} from "@/db/schema";
+import { eq, and, ilike, sql } from "drizzle-orm";
 import { auth } from "@/auth";
 import { z } from "zod";
-import { v4 as uuidv4 } from "uuid";
 
 const postSchema = z.object({
   patientId: z.string().uuid(),
@@ -53,7 +58,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Пациент не найден" }, { status: 404 });
     }
 
-    // Check if a PENDING invitation exists
+    // Check if invitation exists
     const existingInvitation = await db
       .select()
       .from(invitations)
@@ -61,7 +66,7 @@ export async function POST(request: Request) {
         and(
           eq(invitations.patientId, input.patientId),
           eq(invitations.riskGroup, input.riskGroup),
-          eq(invitations.status, "PENDING")
+          eq(invitations.status, "INVITED")
         )
       )
       .limit(1);
@@ -73,16 +78,62 @@ export async function POST(request: Request) {
       );
     }
 
-    // Create invitation
+    // Create base invitation
     await db.insert(invitations).values({
-      id: uuidv4(),
       patientId: input.patientId,
       providerId: session.user.id,
       riskGroup: input.riskGroup,
-      status: "PENDING",
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      status: "INVITED",
     });
+
+    if (input.riskGroup === "Беременные") {
+      // Check if already has active pregnancy
+      const existingPregnancy = await db
+        .select()
+        .from(pregnancies)
+        .where(
+          and(
+            eq(pregnancies.userId, input.patientId),
+            eq(pregnancies.status, "active")
+          )
+        )
+        .limit(1);
+
+      if (!existingPregnancy.length) {
+        // Create pregnancy record with today as LMP
+        const today = new Date();
+        await db.insert(pregnancies).values({
+          userId: input.patientId,
+          lmp: today.toISOString().split("T")[0], // Format as YYYY-MM-DD
+          status: "active",
+        });
+      }
+    } else if (input.riskGroup === "ЖФВ") {
+      // Check if already registered
+      const existingRegister = await db
+        .select()
+        .from(fertileWomenRegister)
+        .where(
+          and(
+            eq(fertileWomenRegister.userId, input.patientId),
+            sql`${fertileWomenRegister.deregistrationDate} IS NULL`
+          )
+        )
+        .limit(1);
+
+      if (!existingRegister.length) {
+        const today = new Date();
+        // Create fertile women register record
+        await db.insert(fertileWomenRegister).values({
+          userId: input.patientId,
+          registrationDate: today.toISOString().split("T")[0], // Format as YYYY-MM-DD
+          pregnanciesCount: 0,
+          birthsCount: 0,
+          abortionsCount: 0,
+          stillbirthsCount: 0,
+        });
+      }
+    }
 
     return NextResponse.json(
       { message: "Приглашение отправлено" },

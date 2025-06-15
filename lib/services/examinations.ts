@@ -80,8 +80,9 @@ function buildScreeningsQuery(filters: ExaminationFilters) {
           ? sql`STRING_AGG(DISTINCT CASE WHEN ${pv.status} = 'CONFIRMED' THEN ${pv.name} END, ', ')`
           : sql`NULL`,
       pregnancyLmp: riskGroup === "Беременные" ? pg.lmp : sql`NULL`,
-      invitationId:
-        riskGroup === "ДУ" || riskGroup === "ПУЗ" ? inv.id : sql`NULL`,
+      invitationId: ["ДУ", "ПУЗ", "Беременные", "ЖФВ"].includes(riskGroup)
+        ? inv.id
+        : sql`NULL`,
     })
     .from(users)
     .leftJoin(diagnoses, eq(diagnoses.userId, users.id));
@@ -99,20 +100,35 @@ function buildScreeningsQuery(filters: ExaminationFilters) {
       break;
 
     case "Беременные":
-      baseQuery = baseQuery.innerJoin(
-        pg,
-        and(eq(pg.userId, users.id), eq(pg.status, "active"))
-      );
+      baseQuery = baseQuery
+        .innerJoin(pg, and(eq(pg.userId, users.id), eq(pg.status, "active")))
+        .leftJoin(
+          inv,
+          and(
+            eq(inv.patientId, users.id),
+            eq(inv.riskGroup, riskGroup),
+            eq(inv.status, "INVITED")
+          )
+        );
       break;
 
     case "ЖФВ":
-      baseQuery = baseQuery.innerJoin(
-        fertileWomenRegister,
-        and(
-          eq(fertileWomenRegister.userId, users.id),
-          sql`${fertileWomenRegister.deregistrationDate} IS NULL`
+      baseQuery = baseQuery
+        .innerJoin(
+          fertileWomenRegister,
+          and(
+            eq(fertileWomenRegister.userId, users.id),
+            sql`${fertileWomenRegister.deregistrationDate} IS NULL`
+          )
         )
-      );
+        .leftJoin(
+          inv,
+          and(
+            eq(inv.patientId, users.id),
+            eq(inv.riskGroup, riskGroup),
+            eq(inv.status, "INVITED")
+          )
+        );
       break;
 
     case "ДУ":
@@ -124,7 +140,7 @@ function buildScreeningsQuery(filters: ExaminationFilters) {
           and(
             eq(inv.patientId, users.id),
             eq(inv.riskGroup, riskGroup),
-            eq(inv.status, "PENDING")
+            eq(inv.status, "INVITED")
           )
         );
       break;
@@ -151,8 +167,8 @@ export async function getPatients(filters: ExaminationFilters) {
     const groupByColumns = [users.id, users.fullName, users.iin];
 
     if (filters.riskGroup === "Беременные") {
-      groupByColumns.push(pregnancies.lmp);
-    } else if (["ДУ", "ПУЗ"].includes(filters.riskGroup)) {
+      groupByColumns.push(pregnancies.lmp, invitations.id);
+    } else if (["ДУ", "ПУЗ", "ЖФВ"].includes(filters.riskGroup)) {
       groupByColumns.push(invitations.id);
     }
 
@@ -163,7 +179,7 @@ export async function getPatients(filters: ExaminationFilters) {
       name: patient.name,
       age: calculateAge(patient.iin),
       diagnosis: (patient.diagnoses as string) || "Нет диагнозов",
-      isInvited: ["ДУ", "ПУЗ"].includes(filters.riskGroup)
+      isInvited: ["ДУ", "ПУЗ", "ЖФВ", "Беременные"].includes(filters.riskGroup)
         ? !!patient.invitationId
         : undefined,
       completedScreenings:

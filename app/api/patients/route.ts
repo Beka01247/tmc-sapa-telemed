@@ -143,7 +143,7 @@ export async function GET(request: Request) {
         and(
           eq(invitations.patientId, users.id),
           eq(invitations.riskGroup, query.riskGroup),
-          eq(invitations.status, "PENDING")
+          eq(invitations.status, "INVITED")
         )
       );
     }

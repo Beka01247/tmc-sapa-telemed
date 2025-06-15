@@ -79,7 +79,18 @@ export const ExaminationsClient = ({
         throw new Error("Не удалось загрузить пациентов");
       }
       const data = await response.json();
-      setPatients(data);
+      console.log("Fetched patients:", data);
+      // Ensure each patient has an isInvited property
+      const patientsWithInvitation = data.map((patient: Patient) => {
+        if (activeTab === "Беременные") {
+          console.log("Patient in Беременные:", patient);
+        }
+        return {
+          ...patient,
+          isInvited: !!patient.isInvited,
+        };
+      });
+      setPatients(patientsWithInvitation);
       setPatientCount(data.length);
     } catch (error) {
       console.error("Ошибка при загрузке пациентов:", error);
@@ -88,9 +99,11 @@ export const ExaminationsClient = ({
   }, [activeTab, age, city, organization]);
 
   useEffect(() => {
+    console.log("[Examinations] Active tab:", activeTab);
     if (activeTab === "ЖФВ") {
       setPatients(jfvPatients);
       setPatientCount(jfvPatients.length);
+      console.log("[Examinations] ЖФВ patients:", jfvPatients);
     } else {
       fetchPatients();
     }
@@ -108,99 +121,149 @@ export const ExaminationsClient = ({
     fetchPatients();
   };
 
-  const renderPatientTable = () => (
-    <div className="border rounded-lg">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>ФИО</TableHead>
-            <TableHead>Возраст</TableHead>
-            <TableHead>Диагноз</TableHead>
-            {activeTab === "Скрининг" && (
-              <TableHead>Пройденные скрининги</TableHead>
-            )}
-            {activeTab === "Вакцинация" && (
-              <TableHead>Пройденные вакцинации</TableHead>
-            )}
-            {activeTab === "Беременные" && (
-              <TableHead>Неделя беременности</TableHead>
-            )}
-            <TableHead>Действия</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {patients.length === 0 ? (
+  const handleInvite = async (patientId: string) => {
+    try {
+      const response = await fetch("/api/invitations", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          patientId,
+          riskGroup: activeTab,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Ошибка при создании приглашения");
+      }
+
+      toast.success("Приглашение отправлено");
+
+      // Immediately update the local state to set isInvited to true for the invited patient
+      setPatients((currentPatients) =>
+        currentPatients.map((patient) =>
+          patient.id === patientId ? { ...patient, isInvited: true } : patient
+        )
+      );
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Не удалось отправить приглашение";
+      toast.error(message);
+      console.error("Error sending invitation:", error);
+    }
+  };
+
+  const renderPatientTable = () => {
+    return (
+      <div className="border rounded-lg">
+        <Table>
+          <TableHeader>
             <TableRow>
-              <TableCell
-                colSpan={
-                  ["Скрининг", "Вакцинация", "Беременные"].includes(activeTab)
-                    ? 5
-                    : activeTab === "ЖФВ"
-                      ? 3
-                      : 4
-                }
-                className="text-center"
-              >
-                {activeTab === "ЖФВ"
-                  ? "Нет пациентов в реестре ЖФВ"
-                  : activeTab === "Скрининг"
-                    ? "Нет пациентов для скрининга"
-                    : activeTab === "Вакцинация"
-                      ? "Нет пациентов для вакцинации"
-                      : activeTab === "Беременные"
-                        ? "Нет беременных пациентов"
-                        : "Нет пациентов в группе риска"}
-              </TableCell>
+              <TableHead>ФИО</TableHead>
+              <TableHead>Возраст</TableHead>
+              <TableHead>Диагноз</TableHead>
+              {activeTab === "Скрининг" && (
+                <TableHead>Пройденные скрининги</TableHead>
+              )}
+              {activeTab === "Вакцинация" && (
+                <TableHead>Пройденные вакцинации</TableHead>
+              )}
+              {activeTab === "Беременные" && (
+                <TableHead>Неделя беременности</TableHead>
+              )}
+              <TableHead>Действия</TableHead>
             </TableRow>
-          ) : (
-            patients.map((patient) => (
-              <TableRow key={patient.id}>
-                <TableCell>
-                  <Link
-                    href={`/dashboard/patients/${patient.id}`}
-                    className="hover:underline"
-                  >
-                    {patient.name}
-                  </Link>
-                </TableCell>
-                <TableCell>{patient.age}</TableCell>
-                <TableCell>{patient.diagnosis}</TableCell>
-                {activeTab === "Скрининг" && (
-                  <TableCell>{patient.completedScreenings}</TableCell>
-                )}
-                {activeTab === "Вакцинация" && (
-                  <TableCell>{patient.completedVaccinations}</TableCell>
-                )}
-                {activeTab === "Беременные" && (
-                  <TableCell>{patient.pregnancyWeek} недель</TableCell>
-                )}
-                <TableCell>
-                  <div className="flex space-x-2">
-                    <Button variant="outline" size="sm" asChild>
-                      <Link href={`/dashboard/patients/${patient.id}`}>
-                        Подробнее
-                      </Link>
-                    </Button>
-                    {(activeTab === "Беременные" ||
-                      activeTab === "ДУ" ||
-                      activeTab === "ЖФВ" ||
-                      activeTab === "ПУЗ") && (
-                      <Button
-                        variant={patient.isInvited ? "secondary" : "default"}
-                        size="sm"
-                      >
-                        {patient.isInvited ? "Приглашен(а)" : "Пригласить"}
-                      </Button>
-                    )}
-                  </div>
+          </TableHeader>
+          <TableBody>
+            {patients.length === 0 ? (
+              <TableRow>
+                <TableCell
+                  colSpan={
+                    ["Скрининг", "Вакцинация", "Беременные"].includes(activeTab)
+                      ? 5
+                      : activeTab === "ЖФВ"
+                        ? 3
+                        : 4
+                  }
+                  className="text-center"
+                >
+                  {activeTab === "ЖФВ"
+                    ? "Нет пациентов в реестре ЖФВ"
+                    : activeTab === "Скрининг"
+                      ? "Нет пациентов для скрининга"
+                      : activeTab === "Вакцинация"
+                        ? "Нет пациентов для вакцинации"
+                        : activeTab === "Беременные"
+                          ? "Нет беременных пациентов"
+                          : "Нет пациентов в группе риска"}
                 </TableCell>
               </TableRow>
-            ))
-          )}
-        </TableBody>
-      </Table>
-    </div>
-  );
+            ) : (
+              patients.map((patient) => {
+                if (activeTab === "Беременные") {
+                  console.log(
+                    "[Examinations] Patient in 'Беременные':",
+                    patient
+                  );
+                }
+                return (
+                  <TableRow key={patient.id}>
+                    <TableCell>
+                      <Link
+                        href={`/dashboard/patients/${patient.id}`}
+                        className="hover:underline"
+                      >
+                        {patient.name}
+                      </Link>
+                    </TableCell>
+                    <TableCell>{patient.age}</TableCell>
+                    <TableCell>{patient.diagnosis}</TableCell>
+                    {activeTab === "Скрининг" && (
+                      <TableCell>{patient.completedScreenings}</TableCell>
+                    )}
+                    {activeTab === "Вакцинация" && (
+                      <TableCell>{patient.completedVaccinations}</TableCell>
+                    )}
+                    {activeTab === "Беременные" && (
+                      <TableCell>{patient.pregnancyWeek} недель</TableCell>
+                    )}
+                    <TableCell>
+                      <div className="flex space-x-2">
+                        <Button variant="outline" size="sm" asChild>
+                          <Link href={`/dashboard/patients/${patient.id}`}>
+                            Подробнее
+                          </Link>
+                        </Button>
+                        {(activeTab === "Беременные" ||
+                          activeTab === "ДУ" ||
+                          activeTab === "ЖФВ" ||
+                          activeTab === "ПУЗ") && (
+                          <Button
+                            variant={
+                              patient.isInvited ? "secondary" : "default"
+                            }
+                            size="sm"
+                            onClick={() => handleInvite(patient.id)}
+                            disabled={patient.isInvited}
+                          >
+                            {patient.isInvited ? "Приглашен(а)" : "Пригласить"}
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
+            )}
+          </TableBody>
+        </Table>
+      </div>
+    );
+  };
 
   return (
     <DashboardLayout

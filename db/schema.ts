@@ -36,12 +36,6 @@ export const consultationStatusEnum = pgEnum("consultationStatus", [
   "CANCELLED",
 ]);
 
-export const invitationStatusEnum = pgEnum("invitationStatus", [
-  "PENDING",
-  "ACCEPTED",
-  "DECLINED",
-]);
-
 export const screeningStatusEnum = pgEnum("screeningStatus", [
   "INVITED", // Doctor sent invitation
   "COMPLETED", // Patient marked as completed
@@ -173,7 +167,7 @@ export const invitations = pgTable("invitations", {
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
   riskGroup: varchar("risk_group", { length: 255 }).notNull(),
-  status: invitationStatusEnum("status").default("PENDING"),
+  status: screeningStatusEnum("status").default("INVITED"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });

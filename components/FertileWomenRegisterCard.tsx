@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Button } from "./ui/button";
 import { EditFertileWomenDataModal } from "./EditFertileWomenDataModal";
+import { toast } from "sonner";
 
 interface FertileWomenRegisterData {
   id: string;
@@ -33,10 +34,12 @@ export const FertileWomenRegisterCard = ({
     return null;
   }
 
-  const handleSave = (updatedData: FertileWomenRegisterData) => {
+  const handleSave = () => {
     // Force a page reload to reflect the changes
     window.location.reload();
   };
+
+  const isDeregistered = !!data.deregistrationDate;
 
   return (
     <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
@@ -45,15 +48,88 @@ export const FertileWomenRegisterCard = ({
           <h3 className="text-2xl font-semibold leading-none tracking-tight">
             Регистр женщин фертильного возраста
           </h3>
-          {isEditable && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setIsEditModalOpen(true)}
-            >
-              Изменить
-            </Button>
-          )}
+          <div className="flex gap-2">
+            {isEditable && (
+              <>
+                {!isDeregistered ? (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsEditModalOpen(true)}
+                    >
+                      Изменить
+                    </Button>
+                    {/* Direct button for removing from register */}
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={async () => {
+                        const reason = prompt(
+                          "Укажите причину снятия с учета:"
+                        );
+
+                        if (!reason) return;
+
+                        try {
+                          const response = await fetch(
+                            `/api/patients/${patientId}/fertile-women-register`,
+                            {
+                              method: "DELETE",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ reason }),
+                            }
+                          );
+
+                          if (response.ok) {
+                            window.location.reload();
+                          } else {
+                            alert("Не удалось снять пациента с учета");
+                          }
+                        } catch {
+                          alert("Произошла ошибка");
+                        }
+                      }}
+                    >
+                      Снять с учета
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={async () => {
+                      try {
+                        // First create a new record
+                        const response = await fetch(
+                          `/api/patients/${patientId}/fertile-women-register`,
+                          {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                          }
+                        );
+
+                        if (response.ok) {
+                          toast.success("Пациент восстановлен в регистре ЖФВ");
+                          window.location.reload();
+                        } else {
+                          toast.error(
+                            "Не удалось восстановить пациента в регистре"
+                          );
+                        }
+                      } catch {
+                        toast.error(
+                          "Произошла ошибка при восстановлении в регистре"
+                        );
+                      }
+                    }}
+                  >
+                    Восстановить в регистре
+                  </Button>
+                )}
+              </>
+            )}
+          </div>
         </div>
 
         <div className="space-y-4">

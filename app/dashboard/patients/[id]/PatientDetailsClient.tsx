@@ -361,11 +361,63 @@ export const PatientDetailsClient = ({
               <>
                 <PregnancyCard patientId={patientId} isDoctor={isDoctor} />
                 {isDoctor && (
-                  <FertileWomenRegisterCard
-                    data={initialData.fertileWomenData}
-                    patientId={patientId}
-                    isEditable={isDoctor}
-                  />
+                  <>
+                    {initialData.fertileWomenData ? (
+                      <FertileWomenRegisterCard
+                        data={initialData.fertileWomenData}
+                        patientId={patientId}
+                        isEditable={isDoctor}
+                      />
+                    ) : (
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="flex items-center justify-between">
+                            <span>Регистр женщин фертильного возраста</span>
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="py-4">
+                            <p className="text-muted-foreground mb-4 text-center">
+                              Пациент не состоит в регистре ЖФВ
+                            </p>
+                            <div className="flex justify-center">
+                              {/* Direct button for adding to register */}
+                              <Button
+                                onClick={async () => {
+                                  try {
+                                    const response = await fetch(
+                                      `/api/patients/${patientId}/fertile-women-register`,
+                                      {
+                                        method: "POST",
+                                        headers: {
+                                          "Content-Type": "application/json",
+                                        },
+                                      }
+                                    );
+
+                                    if (response.ok) {
+                                      toast.success(
+                                        "Пациент добавлен в регистр ЖФВ"
+                                      );
+                                      window.location.reload();
+                                    } else {
+                                      toast.error(
+                                        "Не удалось добавить пациента в регистр"
+                                      );
+                                    }
+                                  } catch {
+                                    toast.error("Произошла ошибка");
+                                  }
+                                }}
+                              >
+                                Добавить в регистр ЖФВ
+                              </Button>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+                  </>
                 )}
               </>
             )}

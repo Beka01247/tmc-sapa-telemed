@@ -59,7 +59,7 @@ export const EditFertileWomenDataModal = ({
       onSave(data);
       onClose();
       toast.success("Данные обновлены");
-    } catch (error) {
+    } catch {
       toast.error("Не удалось обновить данные");
     }
   };
@@ -70,24 +70,22 @@ export const EditFertileWomenDataModal = ({
       return;
     }
 
-    const updatedData = {
-      ...data,
-      deregistrationDate: new Date().toISOString(),
-      reasonDeregistered: deregisterReason,
-    };
-
     try {
       await fetch(`/api/patients/${patientId}/fertile-women-register`, {
-        method: "PUT",
+        method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updatedData),
+        body: JSON.stringify({ reason: deregisterReason }),
       });
 
-      onSave(updatedData);
+      onSave({
+        ...data,
+        deregistrationDate: new Date().toISOString(),
+        reasonDeregistered: deregisterReason,
+      });
       setIsDeregisterDialogOpen(false);
       onClose();
       toast.success("Пациент снят с учета");
-    } catch (error) {
+    } catch {
       toast.error("Не удалось снять пациента с учета");
     }
   };

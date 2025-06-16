@@ -19,6 +19,7 @@ import {
   fertileWomenRegister,
   patientVaccinations,
   receptions,
+  invitations,
 } from "@/db/schema";
 
 async function fetchPatientData(patientId: string) {
@@ -307,6 +308,28 @@ async function fetchPatientData(patientId: string) {
         }))
     );
 
+  // Add invitations fetching
+  const invitationsData = await db
+    .select({
+      id: invitations.id,
+      riskGroup: invitations.riskGroup,
+      status: invitations.status,
+      createdAt: invitations.createdAt,
+      providerName: users.fullName,
+    })
+    .from(invitations)
+    .leftJoin(users, eq(invitations.providerId, users.id))
+    .where(eq(invitations.patientId, patientId))
+    .then((data) =>
+      data.map((inv) => ({
+        ...inv,
+        status: inv.status ?? "INVITED",
+        createdAt: inv.createdAt
+          ? format(new Date(inv.createdAt), "yyyy-MM-dd'T'HH:mm:ssXXX")
+          : "",
+      }))
+    );
+
   return {
     patient: {
       ...patientData,
@@ -323,11 +346,11 @@ async function fetchPatientData(patientId: string) {
     vaccinations: vaccinationsData,
     receptions: receptionsData.map((reception) => ({
       ...reception,
-      createdAt: format(
-        new Date(reception.createdAt),
-        "yyyy-MM-dd'T'HH:mm:ssXXX"
-      ),
+      createdAt: reception.createdAt
+        ? format(new Date(reception.createdAt), "yyyy-MM-dd'T'HH:mm:ssXXX")
+        : "",
     })),
+    invitations: invitationsData,
   };
 }
 

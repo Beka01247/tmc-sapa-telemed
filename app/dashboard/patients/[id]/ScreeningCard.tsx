@@ -33,9 +33,18 @@ interface PatientScreening {
   screening: Screening;
 }
 
+interface Invitation {
+  id: string;
+  riskGroup: string;
+  status: string;
+  providerName: string | null;
+  createdAt: string;
+}
+
 interface ScreeningCardProps {
   patientId: string;
   screenings: PatientScreening[];
+  invitations: Invitation[];
   patientGender: "МУЖСКОЙ" | "ЖЕНСКИЙ" | null;
   patientAge: number;
   onScreeningUpdated: () => void;
@@ -45,6 +54,7 @@ interface ScreeningCardProps {
 export const ScreeningCard = ({
   patientId,
   screenings,
+  invitations = [],
   patientGender,
   patientAge,
   onScreeningUpdated,
@@ -78,6 +88,26 @@ export const ScreeningCard = ({
     } catch (error) {
       console.error("Error updating screening:", error);
       toast.error("Не удалось обновить статус");
+    }
+  };
+
+  // Add handler for invitation status update
+  const handleInvitationStatusUpdate = async (
+    invitationId: string,
+    newStatus: string
+  ) => {
+    try {
+      const response = await fetch("/api/invitations/" + invitationId, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (!response.ok) throw new Error("Failed to update invitation");
+      toast.success("Статус анализа обновлен");
+      onScreeningUpdated();
+    } catch (error) {
+      console.error("Error updating invitation:", error);
+      toast.error("Не удалось обновить статус анализа");
     }
   };
 
@@ -167,9 +197,9 @@ export const ScreeningCard = ({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Скрининги</CardTitle>
+        <CardTitle>Скрининги и анализы</CardTitle>
         <CardDescription>
-          Запланированные и пройденные скрининги
+          Запланированные и пройденные скрининги и анализы
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -178,10 +208,35 @@ export const ScreeningCard = ({
             Пригласить на скрининг
           </Button>
         )}
-
         <div className="space-y-4 h-[300px] overflow-y-auto pr-2">
-          {screenings.map((screening) => (
-            <div key={screening.id} className="border rounded-lg p-4 space-y-2">
+          {[
+            ...screenings,
+            ...invitations.map((inv) => ({
+              id: inv.id,
+              screeningId: "",
+              customScreeningName: inv.riskGroup,
+              scheduledDate: inv.createdAt,
+              status: inv.status as PatientScreening["status"],
+              result: null,
+              notes: null,
+              completedAt: null,
+              confirmedAt: null,
+              confirmedBy: null,
+              createdAt: inv.createdAt,
+              screening: {
+                id: "",
+                name: inv.riskGroup,
+                description: null,
+                testName: null,
+              },
+              providerName: inv.providerName,
+              isInvitation: true,
+            })),
+          ].map((screening: any) => (
+            <div
+              key={screening.id + (screening.isInvitation ? "-inv" : "")}
+              className="border rounded-lg p-4 space-y-2"
+            >
               <div className="flex justify-between items-start">
                 <div>
                   <h4 className="font-medium">
@@ -198,9 +253,72 @@ export const ScreeningCard = ({
                   >
                     {getStatusText(screening.status)}
                   </span>
+                  {screening.isInvitation && screening.providerName && (
+                    <div className="text-xs text-gray-400 mt-1">
+                      Врач: {screening.providerName}
+                    </div>
+                  )}
                 </div>
                 <div className="min-w-[120px]">
-                  {renderStatusActions(screening)}
+                  {screening.isInvitation ? (
+                    isProvider ? (
+                      screening.status === "COMPLETED" ? (
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            onClick={() =>
+                              handleInvitationStatusUpdate(
+                                screening.id,
+                                "CONFIRMED"
+                              )
+                            }
+                          >
+                            Подтвердить
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() =>
+                              handleInvitationStatusUpdate(
+                                screening.id,
+                                "REJECTED"
+                              )
+                            }
+                          >
+                            Отклонить
+                          </Button>
+                        </div>
+                      ) : null
+                    ) : screening.status === "INVITED" ? (
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          onClick={() =>
+                            handleInvitationStatusUpdate(
+                              screening.id,
+                              "COMPLETED"
+                            )
+                          }
+                        >
+                          Пройдено
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() =>
+                            handleInvitationStatusUpdate(
+                              screening.id,
+                              "CANCELLED"
+                            )
+                          }
+                        >
+                          Отменить
+                        </Button>
+                      </div>
+                    ) : null
+                  ) : (
+                    renderStatusActions(screening)
+                  )}
                 </div>
               </div>
               {screening.screening?.description && (
@@ -216,13 +334,12 @@ export const ScreeningCard = ({
             </div>
           ))}
 
-          {screenings.length === 0 && (
+          {screenings.length === 0 && invitations.length === 0 && (
             <p className="text-gray-500 text-center py-4">
-              Нет запланированных скринингов
+              Нет запланированных скринингов или анализов
             </p>
           )}
         </div>
-
         <ScreeningSelectorDialog
           isOpen={isInviteDialogOpen}
           onClose={() => setIsInviteDialogOpen(false)}

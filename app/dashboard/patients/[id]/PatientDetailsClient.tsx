@@ -22,7 +22,14 @@ import { toast } from "sonner";
 import { PregnancyCard } from "./PregnancyCard";
 import { FertileWomenRegisterCard } from "@/components/FertileWomenRegisterCard";
 import { VaccinationsCard } from "@/components/VaccinationsCard";
-import NewReceptionDialog from "@/components/NewReceptionDialog";
+
+interface Invitation {
+  id: string;
+  riskGroup: string;
+  status: string;
+  providerName: string | null;
+  createdAt: string;
+}
 
 interface Diagnosis {
   id?: string;
@@ -155,6 +162,7 @@ interface InitialData {
   fertileWomenData: FertileWomenRegister | null;
   vaccinations: Vaccination[];
   receptions?: Reception[];
+  invitations: Invitation[];
 }
 
 // Utility functions
@@ -367,6 +375,7 @@ export const PatientDetailsClient = ({
             <ScreeningCard
               patientId={patientId}
               screenings={initialData.screenings}
+              invitations={initialData.invitations}
               patientGender={initialData.patient.gender}
               patientAge={parseInt(calculateAge(initialData.patient.iin), 10)}
               onScreeningUpdated={() => window.location.reload()}

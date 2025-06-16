@@ -116,10 +116,7 @@ function buildScreeningsQuery(filters: ExaminationFilters) {
       baseQuery = baseQuery
         .innerJoin(
           fertileWomenRegister,
-          and(
-            eq(fertileWomenRegister.userId, users.id),
-            sql`${fertileWomenRegister.deregistrationDate} IS NULL`
-          )
+          and(eq(fertileWomenRegister.userId, users.id))
         )
         .leftJoin(
           inv,

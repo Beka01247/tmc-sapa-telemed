@@ -54,16 +54,16 @@ const ExaminationsPage = async () => {
     redirect("/");
   }
 
-  // Fetch both screening and ЖФВ patients initially
-  const [screeningPatients, jfvPatients] = await Promise.all([
-    fetchPatients(session.user.organization, session.user.city, "Скрининг"),
-    fetchPatients(session.user.organization, session.user.city, "ЖФВ"),
-  ]);
+  // Fetch initial patients for Скрининг tab
+  const screeningPatients = await fetchPatients(
+    session.user.organization,
+    session.user.city,
+    "Скрининг"
+  );
 
   return (
     <ExaminationsClient
       initialPatients={screeningPatients}
-      jfvPatients={jfvPatients}
       userType={userType}
       userName={session.user.fullName}
       organization={session.user.organization}

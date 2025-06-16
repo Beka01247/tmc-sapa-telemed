@@ -137,16 +137,15 @@ export async function GET(request: Request) {
       );
 
     // Add invitation status join only for non-ЖФВ groups
-    if (query.riskGroup !== "ЖФВ") {
-      baseQuery = baseQuery.leftJoin(
-        invitations,
-        and(
-          eq(invitations.patientId, users.id),
-          eq(invitations.riskGroup, query.riskGroup),
-          eq(invitations.status, "INVITED")
-        )
-      );
-    }
+
+    baseQuery = baseQuery.leftJoin(
+      invitations,
+      and(
+        eq(invitations.patientId, users.id),
+        eq(invitations.riskGroup, query.riskGroup),
+        eq(invitations.status, "INVITED")
+      )
+    );
 
     // Apply risk group filter for all groups except Скрининг
     if (query.riskGroup !== "Скрининг") {

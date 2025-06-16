@@ -113,12 +113,7 @@ export async function POST(request: Request) {
       const existingRegister = await db
         .select()
         .from(fertileWomenRegister)
-        .where(
-          and(
-            eq(fertileWomenRegister.userId, input.patientId),
-            sql`${fertileWomenRegister.deregistrationDate} IS NULL`
-          )
-        )
+        .where(and(eq(fertileWomenRegister.userId, input.patientId)))
         .limit(1);
 
       if (!existingRegister.length) {

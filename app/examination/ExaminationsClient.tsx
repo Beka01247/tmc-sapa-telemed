@@ -30,7 +30,6 @@ interface Patient {
 
 interface ExaminationsClientProps {
   initialPatients: Patient[];
-  jfvPatients: Patient[];
   userType: UserType;
   userName: string;
   organization: string;
@@ -40,7 +39,6 @@ interface ExaminationsClientProps {
 
 export const ExaminationsClient = ({
   initialPatients,
-  jfvPatients,
   userType,
   userName,
   organization,
@@ -94,13 +92,9 @@ export const ExaminationsClient = ({
   }, [activeTab, age, city, organization]);
 
   useEffect(() => {
-    if (activeTab === "ЖФВ") {
-      setPatients(jfvPatients);
-      setPatientCount(jfvPatients.length);
-    } else {
-      fetchPatients();
-    }
-  }, [activeTab, age, jfvPatients, fetchPatients]);
+    // Fetch data for all tabs, including ЖФВ
+    fetchPatients();
+  }, [activeTab, age, fetchPatients]);
 
   const handleAgeFilterChange = () => {
     const ageValue = age ? parseInt(age) : undefined;
@@ -176,7 +170,9 @@ export const ExaminationsClient = ({
               <TableRow>
                 <TableCell
                   colSpan={
-                    ["Скрининг", "Вакцинация", "Беременные"].includes(activeTab)
+                    ["Скрининг", "Вакцинация", "Беременные", "ЖФВ"].includes(
+                      activeTab
+                    )
                       ? 5
                       : activeTab === "ЖФВ"
                         ? 3

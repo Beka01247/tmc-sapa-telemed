@@ -228,7 +228,7 @@ export const PatientDetailsClient = ({
   const [isRiskGroupModalOpen, setIsRiskGroupModalOpen] = useState(false);
 
   const handleGoBack = () => {
-    router.push("/dashboard/patients");
+    router.back();
   };
 
   const handleSaveDiagnoses = (diagnoses: Diagnosis[]) => {
@@ -255,16 +255,31 @@ export const PatientDetailsClient = ({
     >
       <TooltipProvider>
         <div className="space-y-6">
-          <Button
-            variant="outline"
-            onClick={handleGoBack}
-            className="w-full sm:w-auto"
-          >
-            Назад
-          </Button>
-
           <Card>
             <CardHeader>
+              <div className="flex items-center justify-between mb-2">
+                <Button
+                  variant="outline"
+                  onClick={handleGoBack}
+                  size="sm"
+                  className="flex items-center gap-1"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M19 12H5M12 19l-7-7 7-7" />
+                  </svg>
+                  Назад
+                </Button>
+              </div>
               <CardTitle className="text-center">
                 Информация о пациенте
               </CardTitle>

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { UserType } from "@/constants/userTypes";
 import Link from "next/link";
@@ -12,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { signOut } from "next-auth/react";
+import { Menu } from "lucide-react";
 
 interface NavItem {
   title: string;
@@ -59,6 +61,17 @@ const DashboardLayout = ({
   session,
 }: DashboardLayoutProps) => {
   const pathname = usePathname();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Keep sidebar open by default on desktop screens (>=768px)
+  useEffect(() => {
+    const handleResize = () => {
+      setSidebarOpen(window.innerWidth >= 768);
+    };
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   const navItems =
     userType === UserType.PATIENT
@@ -78,8 +91,21 @@ const DashboardLayout = ({
 
   return (
     <div className="flex min-h-screen">
+      {/* Sidebar & mobile overlay */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/40 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
-      <div className="w-64 bg-card border-r">
+      <aside
+        className={cn(
+          "fixed inset-y-0 left-0 z-50 w-64 bg-card border-r transition-transform duration-300 md:relative md:translate-x-0", // Base
+          sidebarOpen ? "translate-x-0" : "-translate-x-full" // Toggle
+        )}
+      >
         <div className="p-6">
           <h2 className="text-2xl font-semibold text-primary">Sapa Telemed</h2>
         </div>
@@ -94,20 +120,30 @@ const DashboardLayout = ({
                   ? "bg-primary text-primary-foreground"
                   : "hover:bg-muted"
               )}
+              onClick={() => setSidebarOpen(false)} // close after navigation on mobile
             >
               {item.title}
             </Link>
           ))}
         </nav>
-      </div>
+      </aside>
 
       {/* Main content */}
       <div className="flex-1">
-        <header className="h-16 border-b flex items-center px-6 bg-card">
+        <header className="h-16 border-b flex items-center px-4 md:px-6 bg-card space-x-4">
+          {/* Hamburger */}
+          <button
+            className="md:hidden p-2 rounded-md hover:bg-muted transition-colors"
+            onClick={() => setSidebarOpen((prev) => !prev)}
+          >
+            <Menu size={24} />
+          </button>
+
           <h1 className="text-lg font-semibold flex-1">
             {navItems.find((item) => item.href === pathname)?.title ||
               "Dashboard"}
           </h1>
+
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <div
@@ -120,7 +156,9 @@ const DashboardLayout = ({
                   <AvatarImage alt={userName} />
                   <AvatarFallback>{initials}</AvatarFallback>
                 </Avatar>
-                <span className="text-sm font-medium">{userName}</span>
+                <span className="text-sm font-medium hidden sm:inline">
+                  {userName}
+                </span>
               </div>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
@@ -132,7 +170,7 @@ const DashboardLayout = ({
             </DropdownMenuContent>
           </DropdownMenu>
         </header>
-        <main className="p-6">{children}</main>
+        <main className="p-4 md:p-6">{children}</main>
       </div>
     </div>
   );

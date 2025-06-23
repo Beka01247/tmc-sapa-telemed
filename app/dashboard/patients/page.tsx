@@ -12,7 +12,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { db } from "@/db/drizzle";
-import { users, consultations, diagnoses } from "@/db/schema";
+import { users, consultations, diagnoses, patientAlerts } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 import Link from "next/link";
@@ -22,6 +22,8 @@ interface Patient {
   name: string;
   age: number;
   diagnosis: string | null;
+  alertStatus: "NORMAL" | "CRITICAL";
+  unacknowledgedAlerts: number;
 }
 
 const calculateAge = (iin: string, currentDate: Date = new Date()): number => {
@@ -64,10 +66,15 @@ const PatientsPage = async () => {
         diagnoses: sql`string_agg(${diagnoses.description}, ', ')`.as(
           "diagnoses"
         ),
+        criticalAlerts:
+          sql`count(CASE WHEN ${patientAlerts.alertStatus} = 'CRITICAL' AND ${patientAlerts.acknowledged} = false THEN 1 END)`.as(
+            "criticalAlerts"
+          ),
       })
       .from(users)
       .leftJoin(consultations, eq(consultations.patientId, users.id))
       .leftJoin(diagnoses, eq(diagnoses.userId, users.id))
+      .leftJoin(patientAlerts, eq(patientAlerts.patientId, users.id))
       .where(
         and(
           eq(users.userType, "PATIENT"),
@@ -75,19 +82,28 @@ const PatientsPage = async () => {
           eq(users.city, session.user.city)
         )
       )
-      .groupBy(
-        users.id,
-        users.fullName,
-        users.iin,
-        consultations.consultationDate
-      );
+      .groupBy(users.id, users.fullName, users.iin);
 
-    patients = patientRecords.map((record) => ({
-      id: record.id,
-      name: record.name,
-      age: calculateAge(record.iin),
-      diagnosis: record.diagnoses || "Нет диагнозов",
-    }));
+    patients = patientRecords
+      .map((record) => ({
+        id: record.id,
+        name: record.name,
+        age: calculateAge(record.iin),
+        diagnosis: (record.diagnoses as string) || "Нет диагнозов",
+        alertStatus:
+          Number(record.criticalAlerts) > 0
+            ? ("CRITICAL" as const)
+            : ("NORMAL" as const),
+        unacknowledgedAlerts: Number(record.criticalAlerts) || 0,
+      }))
+      .sort((a, b) => {
+        // Sort critical patients first
+        if (a.alertStatus === "CRITICAL" && b.alertStatus === "NORMAL")
+          return -1;
+        if (a.alertStatus === "NORMAL" && b.alertStatus === "CRITICAL")
+          return 1;
+        return a.name.localeCompare(b.name);
+      });
   } catch (error) {
     console.error("Error fetching patients:", error);
   }
@@ -110,6 +126,7 @@ const PatientsPage = async () => {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>Статус</TableHead>
                 <TableHead>ФИО</TableHead>
                 <TableHead>Возраст</TableHead>
                 <TableHead>Диагноз</TableHead>
@@ -125,8 +142,30 @@ const PatientsPage = async () => {
                 </TableRow>
               ) : (
                 patients.map((patient) => (
-                  <TableRow key={patient.id}>
-                    <TableCell>{patient.name}</TableCell>
+                  <TableRow
+                    key={patient.id}
+                    className={
+                      patient.alertStatus === "CRITICAL" ? "bg-red-50" : ""
+                    }
+                  >
+                    <TableCell>
+                      <div className="flex items-center space-x-2">
+                        <div
+                          className={`w-3 h-3 rounded-full ${
+                            patient.alertStatus === "CRITICAL"
+                              ? "bg-red-500"
+                              : "bg-green-500"
+                          }`}
+                        />
+                      </div>
+                    </TableCell>
+                    <TableCell
+                      className={
+                        patient.alertStatus === "CRITICAL" ? "font-medium" : ""
+                      }
+                    >
+                      {patient.name}
+                    </TableCell>
                     <TableCell>{patient.age}</TableCell>
                     <TableCell>{patient.diagnosis}</TableCell>
                     <TableCell>

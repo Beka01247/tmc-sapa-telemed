@@ -24,10 +24,21 @@ interface Measurement {
   createdAt: string;
 }
 
+interface Alert {
+  id: string;
+  patientId: string;
+  measurementType: string;
+  alertStatus: "NORMAL" | "WARNING" | "CRITICAL";
+  message: string;
+  acknowledged: boolean;
+  createdAt: string;
+}
+
 interface Session {
   user: {
     fullName: string;
     userType: string;
+    id?: string;
   };
 }
 
@@ -155,27 +166,38 @@ const MonitoringPage = ({ session }: MonitoringPageProps) => {
   const [selectedStatsItem, setSelectedStatsItem] =
     useState<MonitoringItem | null>(null);
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
+  const [alerts, setAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchMeasurements = async () => {
+    const fetchData = async () => {
       try {
-        const response = await fetch("/api/measurements");
-        if (!response.ok) {
+        // Fetch measurements
+        const measurementsResponse = await fetch("/api/measurements");
+        if (!measurementsResponse.ok) {
           throw new Error("Не удалось загрузить измерения");
         }
-        const data = await response.json();
-        setMeasurements(data);
+        const measurementsData = await measurementsResponse.json();
+        setMeasurements(measurementsData);
+
+        // Fetch alerts for patient
+        const alertsResponse = await fetch(
+          `/api/patient-alerts?patientId=${session.user.id}`
+        );
+        if (alertsResponse.ok) {
+          const alertsData = await alertsResponse.json();
+          setAlerts(alertsData);
+        }
       } catch (err) {
-        setError(err.message);
+        setError(err instanceof Error ? err.message : "Unknown error");
       } finally {
         setLoading(false);
       }
     };
 
-    fetchMeasurements();
-  }, []);
+    fetchData();
+  }, [session.user.id]);
 
   // Sort monitoringItems based on latest measurement createdAt
   const sortedMonitoringItems = useMemo(() => {
@@ -240,8 +262,8 @@ const MonitoringPage = ({ session }: MonitoringPageProps) => {
 
       setSelectedItem(null);
     } catch (err) {
-      setError(err.message);
-      alert(err.message);
+      setError(err instanceof Error ? err.message : "Unknown error");
+      alert(err instanceof Error ? err.message : "Unknown error");
     }
   };
 
@@ -273,6 +295,15 @@ const MonitoringPage = ({ session }: MonitoringPageProps) => {
     };
   };
 
+  const hasActiveAlert = (itemId: string) => {
+    return alerts.some(
+      (alert) =>
+        alert.measurementType === itemId &&
+        alert.alertStatus === "CRITICAL" &&
+        !alert.acknowledged
+    );
+  };
+
   return (
     <DashboardLayout
       userType={session.user.userType as UserType}
@@ -291,13 +322,21 @@ const MonitoringPage = ({ session }: MonitoringPageProps) => {
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {sortedMonitoringItems.map((item) => {
               const { value, date } = getLatestMeasurement(item.id);
+              const isAlert = hasActiveAlert(item.id);
               return (
-                <Card key={item.id}>
+                <Card
+                  key={item.id}
+                  className={isAlert ? "border-red-500 bg-red-50" : ""}
+                >
                   <CardHeader>
-                    <CardTitle>{item.title}</CardTitle>
+                    <CardTitle className={isAlert ? "text-red-700" : ""}>
+                      {item.title}
+                    </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">
+                    <div
+                      className={`text-2xl font-bold ${isAlert ? "text-red-700" : ""}`}
+                    >
                       {value} {item.unit}
                     </div>
                     <p className="text-sm text-gray-400">

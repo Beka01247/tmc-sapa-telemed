@@ -8,6 +8,7 @@ import {
   date,
   integer,
   boolean,
+  decimal,
 } from "drizzle-orm/pg-core";
 
 export const genderEnum = pgEnum("gender", ["МУЖСКОЙ", "ЖЕНСКИЙ", "ЖЕНСКИЙ"]);
@@ -28,6 +29,12 @@ export const measurementTypeEnum = pgEnum("measurementType", [
   "ultrasound",
   "xray",
   "inr",
+]);
+
+export const alertStatusEnum = pgEnum("alertStatus", [
+  "NORMAL",
+  "WARNING",
+  "CRITICAL",
 ]);
 
 export const consultationStatusEnum = pgEnum("consultationStatus", [
@@ -264,4 +271,44 @@ export const receptions = pgTable("receptions", {
   treatment: text("treatment").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
+export const criticalValues = pgTable("critical_values", {
+  id: uuid("id").notNull().primaryKey().defaultRandom(),
+  patientId: uuid("patient_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  providerId: uuid("provider_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  measurementType: measurementTypeEnum("measurement_type").notNull(),
+  minValue: decimal("min_value", { precision: 10, scale: 2 }),
+  maxValue: decimal("max_value", { precision: 10, scale: 2 }),
+  minValue2: decimal("min_value2", { precision: 10, scale: 2 }), // for blood pressure etc
+  maxValue2: decimal("max_value2", { precision: 10, scale: 2 }), // for blood pressure etc
+  notes: text("notes"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
+export const patientAlerts = pgTable("patient_alerts", {
+  id: uuid("id").notNull().primaryKey().defaultRandom(),
+  patientId: uuid("patient_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  measurementId: uuid("measurement_id")
+    .notNull()
+    .references(() => measurements.id, { onDelete: "cascade" }),
+  alertStatus: alertStatusEnum("alert_status").notNull(),
+  criticalValueId: uuid("critical_value_id").references(
+    () => criticalValues.id,
+    { onDelete: "cascade" }
+  ),
+  message: text("message"),
+  acknowledged: boolean("acknowledged").default(false),
+  acknowledgedBy: uuid("acknowledged_by").references(() => users.id, {
+    onDelete: "set null",
+  }),
+  acknowledgedAt: timestamp("acknowledged_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 });

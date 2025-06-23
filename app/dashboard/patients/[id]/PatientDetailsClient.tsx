@@ -221,7 +221,7 @@ export const PatientDetailsClient = ({
     | "files"
     | "monitoring"
     | null
-  >("consultations");
+  >("monitoring");
   const [isRecommendationModalOpen, setIsRecommendationModalOpen] =
     useState(false);
   const [isDiagnosisModalOpen, setIsDiagnosisModalOpen] = useState(false);
@@ -458,6 +458,12 @@ export const PatientDetailsClient = ({
           <div className="flex justify-center">
             <div className="flex flex-wrap gap-4">
               <Button
+                variant={selectedTab === "monitoring" ? "default" : "outline"}
+                onClick={() => setSelectedTab("monitoring")}
+              >
+                Мониторинг
+              </Button>
+              <Button
                 variant={
                   selectedTab === "consultations" ? "default" : "outline"
                 }
@@ -484,12 +490,6 @@ export const PatientDetailsClient = ({
                 onClick={() => setSelectedTab("files")}
               >
                 Файлы
-              </Button>
-              <Button
-                variant={selectedTab === "monitoring" ? "default" : "outline"}
-                onClick={() => setSelectedTab("monitoring")}
-              >
-                Мониторинг
               </Button>
             </div>
           </div>
@@ -519,7 +519,11 @@ export const PatientDetailsClient = ({
           )}
           {selectedTab === "files" && <FilesTab files={initialData.files} />}
           {selectedTab === "monitoring" && (
-            <MonitoringTab measurements={initialData.measurements} />
+            <MonitoringTab
+              measurements={initialData.measurements}
+              patientId={patientId}
+              userType={userType.toString()}
+            />
           )}
 
           <EditDiagnosesModal

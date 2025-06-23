@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import StatisticsModal from "@/components/StatisticsModal";
+import CriticalValuesModal from "@/components/CriticalValuesModal";
 import { monitoringItems } from "@/components/MonitoringPage";
 
 interface Measurement {
@@ -14,12 +15,60 @@ interface Measurement {
   createdAt: string;
 }
 
-interface MonitoringTabProps {
-  measurements: Measurement[];
+interface Alert {
+  id: string;
+  patientId: string;
+  measurementType: string;
+  alertStatus: "NORMAL" | "WARNING" | "CRITICAL";
+  message: string;
+  acknowledged: boolean;
+  createdAt: string;
 }
 
-export const MonitoringTab = ({ measurements }: MonitoringTabProps) => {
-  const [selectedStatsItem, setSelectedStatsItem] = useState<any | null>(null);
+interface MonitoringTabProps {
+  measurements: Measurement[];
+  patientId: string;
+  userType: string;
+}
+
+export const MonitoringTab = ({
+  measurements,
+  patientId,
+  userType,
+}: MonitoringTabProps) => {
+  const [selectedStatsItem, setSelectedStatsItem] = useState<
+    (typeof monitoringItems)[0] | null
+  >(null);
+  const [alerts, setAlerts] = useState<Alert[]>([]);
+
+  useEffect(() => {
+    const fetchAlerts = async () => {
+      try {
+        const response = await fetch(
+          `/api/patient-alerts?patientId=${patientId}`
+        );
+        if (response.ok) {
+          const alertsData = await response.json();
+          setAlerts(alertsData);
+        }
+      } catch (error) {
+        console.error("Error fetching alerts:", error);
+      }
+    };
+
+    fetchAlerts();
+  }, [patientId]);
+
+  const hasActiveAlert = (itemId: string) => {
+    return alerts.some(
+      (alert) =>
+        alert.measurementType === itemId &&
+        alert.alertStatus === "CRITICAL" &&
+        !alert.acknowledged
+    );
+  };
+
+  const canSetCriticalValues = userType === "DOCTOR" || userType === "NURSE";
 
   return (
     <>
@@ -33,13 +82,21 @@ export const MonitoringTab = ({ measurements }: MonitoringTabProps) => {
               const latestMeasurement = measurements.find(
                 (m) => m.type === item.id
               );
+              const isAlert = hasActiveAlert(item.id);
               return (
-                <Card key={item.id}>
+                <Card
+                  key={item.id}
+                  className={isAlert ? "border-red-500 bg-red-50" : ""}
+                >
                   <CardHeader>
-                    <CardTitle>{item.title}</CardTitle>
+                    <CardTitle className={isAlert ? "text-red-700" : ""}>
+                      {item.title}
+                    </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">
+                    <div
+                      className={`text-2xl font-bold ${isAlert ? "text-red-700" : ""}`}
+                    >
                       {latestMeasurement
                         ? item.inputType === "double" &&
                           latestMeasurement.value2
@@ -56,13 +113,38 @@ export const MonitoringTab = ({ measurements }: MonitoringTabProps) => {
                           ).toLocaleDateString("ru-RU")
                         : "Нет данных"}
                     </p>
-                    <Button
-                      className="mt-4"
-                      variant="outline"
-                      onClick={() => setSelectedStatsItem(item)}
-                    >
-                      Статистика
-                    </Button>
+                    <div className="flex space-x-2 mt-4">
+                      <Button
+                        variant="outline"
+                        onClick={() => setSelectedStatsItem(item)}
+                      >
+                        Статистика
+                      </Button>
+                      {canSetCriticalValues && (
+                        <CriticalValuesModal
+                          patientId={patientId}
+                          measurementType={item.id}
+                          measurementTitle={item.title}
+                          onSave={() => {
+                            // Refresh alerts after saving critical values
+                            const fetchAlerts = async () => {
+                              try {
+                                const response = await fetch(
+                                  `/api/patient-alerts?patientId=${patientId}`
+                                );
+                                if (response.ok) {
+                                  const alertsData = await response.json();
+                                  setAlerts(alertsData);
+                                }
+                              } catch (error) {
+                                console.error("Error fetching alerts:", error);
+                              }
+                            };
+                            fetchAlerts();
+                          }}
+                        />
+                      )}
+                    </div>
                   </CardContent>
                 </Card>
               );
@@ -74,9 +156,12 @@ export const MonitoringTab = ({ measurements }: MonitoringTabProps) => {
       {selectedStatsItem && (
         <StatisticsModal
           item={selectedStatsItem}
-          measurements={measurements.filter(
-            (m) => m.type === selectedStatsItem.id
-          )}
+          measurements={measurements
+            .filter((m) => m.type === selectedStatsItem.id)
+            .map((m) => ({
+              ...m,
+              value2: m.value2 || null,
+            }))}
           onClose={() => setSelectedStatsItem(null)}
         />
       )}

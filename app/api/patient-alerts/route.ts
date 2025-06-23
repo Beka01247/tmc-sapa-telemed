@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/db/drizzle";
 import { patientAlerts, measurements, users } from "@/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 
 export async function GET(request: NextRequest) {
   try {
@@ -98,26 +98,52 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { alertId } = body;
+    const { alertId, patientId, measurementType } = body;
 
-    if (!alertId) {
-      return NextResponse.json(
-        { error: "Alert ID is required" },
-        { status: 400 }
-      );
+    // If alertId is provided, acknowledge single alert (legacy support)
+    if (alertId) {
+      const updatedAlert = await db
+        .update(patientAlerts)
+        .set({
+          acknowledged: true,
+          acknowledgedBy: session.user.id,
+          acknowledgedAt: new Date(),
+        })
+        .where(eq(patientAlerts.id, alertId))
+        .returning();
+
+      return NextResponse.json(updatedAlert[0]);
     }
 
-    const updatedAlert = await db
-      .update(patientAlerts)
-      .set({
-        acknowledged: true,
-        acknowledgedBy: session.user.id,
-        acknowledgedAt: new Date(),
-      })
-      .where(eq(patientAlerts.id, alertId))
-      .returning();
+    // If patientId and measurementType are provided, acknowledge all alerts for that measurement type
+    if (patientId && measurementType) {
+      const updatedAlerts = await db
+        .update(patientAlerts)
+        .set({
+          acknowledged: true,
+          acknowledgedBy: session.user.id,
+          acknowledgedAt: new Date(),
+        })
+        .from(measurements)
+        .where(
+          and(
+            eq(patientAlerts.patientId, patientId),
+            eq(measurements.type, measurementType),
+            eq(patientAlerts.measurementId, measurements.id),
+            eq(patientAlerts.acknowledged, false)
+          )
+        )
+        .returning();
 
-    return NextResponse.json(updatedAlert[0]);
+      return NextResponse.json(updatedAlerts);
+    }
+
+    return NextResponse.json(
+      {
+        error: "Either alertId or (patientId and measurementType) are required",
+      },
+      { status: 400 }
+    );
   } catch (error) {
     console.error("Error acknowledging alert:", error);
     return NextResponse.json(

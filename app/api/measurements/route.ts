@@ -9,6 +9,28 @@ import {
 import { auth } from "@/auth";
 import { eq, desc, and } from "drizzle-orm";
 
+// Helper function to translate measurement types to Russian
+function getMeasurementTypeInRussian(measurementType: string): string {
+  const translations: Record<string, string> = {
+    "blood-pressure": "Артериальное давление",
+    pulse: "Пульс",
+    temperature: "Температура",
+    glucose: "Глюкоза",
+    oximeter: "Оксигинация крови",
+    spirometer: "Спирография",
+    cholesterol: "Холестерин",
+    hemoglobin: "Гемоглобин",
+    triglycerides: "Триглицериды",
+    weight: "Вес",
+    height: "Рост",
+    ultrasound: "УЗИ мобил",
+    xray: "Рентген мобил",
+    inr: "МНО",
+  };
+
+  return translations[measurementType] || measurementType;
+}
+
 // Helper function to check critical values and create alerts
 async function checkAndCreateAlert(
   patientId: string,
@@ -93,7 +115,9 @@ async function checkAndCreateAlert(
 
       if ((maxVal && val1 > maxVal) || (minVal && val1 < minVal)) {
         alertStatus = "CRITICAL";
-        message = `Значение ${measurementType}: ${val1} вне нормальных значений`;
+        const russianMeasurementType =
+          getMeasurementTypeInRussian(measurementType);
+        message = `${russianMeasurementType}: ${val1}, вне нормальных значений`;
       }
     }
 

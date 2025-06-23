@@ -59,8 +59,38 @@ export const MonitoringTab = ({
     fetchAlerts();
   }, [patientId]);
 
-  const hasActiveAlert = (itemId: string) => {
-    return alerts.some(
+  const canSetCriticalValues = userType === "DOCTOR" || userType === "NURSE";
+
+  const handleAcknowledgeAlert = async (measurementType: string) => {
+    try {
+      const response = await fetch("/api/patient-alerts", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          patientId: patientId,
+          measurementType: measurementType,
+        }),
+      });
+
+      if (response.ok) {
+        // Refresh alerts after acknowledging
+        const alertsResponse = await fetch(
+          `/api/patient-alerts?patientId=${patientId}`
+        );
+        if (alertsResponse.ok) {
+          const alertsData = await alertsResponse.json();
+          setAlerts(alertsData);
+        }
+      }
+    } catch (error) {
+      console.error("Error acknowledging alert:", error);
+    }
+  };
+
+  const getActiveAlert = (itemId: string) => {
+    return alerts.find(
       (alert) =>
         alert.measurementType === itemId &&
         alert.alertStatus === "CRITICAL" &&
@@ -68,7 +98,14 @@ export const MonitoringTab = ({
     );
   };
 
-  const canSetCriticalValues = userType === "DOCTOR" || userType === "NURSE";
+  const getActiveAlertsCount = (itemId: string) => {
+    return alerts.filter(
+      (alert) =>
+        alert.measurementType === itemId &&
+        alert.alertStatus === "CRITICAL" &&
+        !alert.acknowledged
+    ).length;
+  };
 
   return (
     <>
@@ -82,7 +119,9 @@ export const MonitoringTab = ({
               const latestMeasurement = measurements.find(
                 (m) => m.type === item.id
               );
-              const isAlert = hasActiveAlert(item.id);
+              const activeAlert = getActiveAlert(item.id);
+              const alertsCount = getActiveAlertsCount(item.id);
+              const isAlert = !!activeAlert;
               return (
                 <Card
                   key={item.id}
@@ -94,6 +133,21 @@ export const MonitoringTab = ({
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
+                    {isAlert && (
+                      <div className="mb-3 p-2 bg-red-100 border border-red-300 rounded-md">
+                        <p className="text-sm text-red-800 font-medium">
+                          ⚠️ Критическое значение!
+                          {alertsCount > 1 && (
+                            <span className="ml-1 text-xs">
+                              ({alertsCount} предупреждений)
+                            </span>
+                          )}
+                        </p>
+                        <p className="text-xs text-red-600">
+                          {activeAlert?.message}
+                        </p>
+                      </div>
+                    )}
                     <div
                       className={`text-2xl font-bold ${isAlert ? "text-red-700" : ""}`}
                     >
@@ -145,6 +199,18 @@ export const MonitoringTab = ({
                         />
                       )}
                     </div>
+                    {isAlert && canSetCriticalValues && activeAlert && (
+                      <div className="mt-2">
+                        <Button
+                          variant="outline"
+                          className="border-red-500 text-red-700 hover:bg-red-50 w-full"
+                          onClick={() => handleAcknowledgeAlert(item.id)}
+                        >
+                          Ознакомлен{" "}
+                          {alertsCount > 1 ? `со всеми (${alertsCount})` : ""}
+                        </Button>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               );

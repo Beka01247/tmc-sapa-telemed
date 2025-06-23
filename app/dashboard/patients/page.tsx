@@ -12,10 +12,32 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { db } from "@/db/drizzle";
-import { users, consultations, diagnoses, patientAlerts } from "@/db/schema";
+import { users, diagnoses, patientAlerts, measurements } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 import Link from "next/link";
+
+// Helper function to translate measurement types to Russian
+function getMeasurementTypeInRussian(measurementType: string): string {
+  const translations: Record<string, string> = {
+    "blood-pressure": "Артериальное давление",
+    pulse: "Пульс",
+    temperature: "Температура",
+    glucose: "Глюкоза",
+    oximeter: "Оксигинация крови",
+    spirometer: "Спирография",
+    cholesterol: "Холестерин",
+    hemoglobin: "Гемоглобин",
+    triglycerides: "Триглицериды",
+    weight: "Вес",
+    height: "Рост",
+    ultrasound: "УЗИ мобил",
+    xray: "Рентген мобил",
+    inr: "МНО",
+  };
+
+  return translations[measurementType] || measurementType;
+}
 
 interface Patient {
   id: string;
@@ -24,6 +46,7 @@ interface Patient {
   diagnosis: string | null;
   alertStatus: "NORMAL" | "CRITICAL";
   unacknowledgedAlerts: number;
+  alertMeasurements: string[];
 }
 
 const calculateAge = (iin: string, currentDate: Date = new Date()): number => {
@@ -58,23 +81,18 @@ const PatientsPage = async () => {
 
   let patients: Patient[] = [];
   try {
+    // First, get all patients
     const patientRecords = await db
       .select({
         id: users.id,
         name: users.fullName,
         iin: users.iin,
-        diagnoses: sql`string_agg(${diagnoses.description}, ', ')`.as(
+        diagnoses: sql`string_agg(DISTINCT ${diagnoses.description}, ', ')`.as(
           "diagnoses"
         ),
-        criticalAlerts:
-          sql`count(CASE WHEN ${patientAlerts.alertStatus} = 'CRITICAL' AND ${patientAlerts.acknowledged} = false THEN 1 END)`.as(
-            "criticalAlerts"
-          ),
       })
       .from(users)
-      .leftJoin(consultations, eq(consultations.patientId, users.id))
       .leftJoin(diagnoses, eq(diagnoses.userId, users.id))
-      .leftJoin(patientAlerts, eq(patientAlerts.patientId, users.id))
       .where(
         and(
           eq(users.userType, "PATIENT"),
@@ -84,26 +102,58 @@ const PatientsPage = async () => {
       )
       .groupBy(users.id, users.fullName, users.iin);
 
-    patients = patientRecords
-      .map((record) => ({
-        id: record.id,
-        name: record.name,
-        age: calculateAge(record.iin),
-        diagnosis: (record.diagnoses as string) || "Нет диагнозов",
-        alertStatus:
-          Number(record.criticalAlerts) > 0
-            ? ("CRITICAL" as const)
-            : ("NORMAL" as const),
-        unacknowledgedAlerts: Number(record.criticalAlerts) || 0,
-      }))
-      .sort((a, b) => {
-        // Sort critical patients first
-        if (a.alertStatus === "CRITICAL" && b.alertStatus === "NORMAL")
-          return -1;
-        if (a.alertStatus === "NORMAL" && b.alertStatus === "CRITICAL")
-          return 1;
-        return a.name.localeCompare(b.name);
-      });
+    // Then, get alert information for each patient
+    const patientsWithAlerts = await Promise.all(
+      patientRecords.map(async (record) => {
+        const alertsData = await db
+          .select({
+            measurementType: measurements.type,
+            alertStatus: patientAlerts.alertStatus,
+            acknowledged: patientAlerts.acknowledged,
+          })
+          .from(patientAlerts)
+          .leftJoin(
+            measurements,
+            eq(measurements.id, patientAlerts.measurementId)
+          )
+          .where(
+            and(
+              eq(patientAlerts.patientId, record.id),
+              eq(patientAlerts.alertStatus, "CRITICAL"),
+              eq(patientAlerts.acknowledged, false)
+            )
+          );
+
+        const criticalAlerts = alertsData.length;
+        const uniqueMeasurementTypes = [
+          ...new Set(
+            alertsData.map((alert) => alert.measurementType).filter(Boolean)
+          ),
+        ];
+
+        const alertMeasurements = uniqueMeasurementTypes.map((type) =>
+          getMeasurementTypeInRussian(type as string)
+        );
+
+        return {
+          id: record.id,
+          name: record.name,
+          age: calculateAge(record.iin),
+          diagnosis: (record.diagnoses as string) || "Нет диагнозов",
+          alertStatus:
+            criticalAlerts > 0 ? ("CRITICAL" as const) : ("NORMAL" as const),
+          unacknowledgedAlerts: criticalAlerts,
+          alertMeasurements,
+        };
+      })
+    );
+
+    patients = patientsWithAlerts.sort((a, b) => {
+      // Sort critical patients first
+      if (a.alertStatus === "CRITICAL" && b.alertStatus === "NORMAL") return -1;
+      if (a.alertStatus === "NORMAL" && b.alertStatus === "CRITICAL") return 1;
+      return a.name.localeCompare(b.name);
+    });
   } catch (error) {
     console.error("Error fetching patients:", error);
   }
@@ -130,13 +180,14 @@ const PatientsPage = async () => {
                 <TableHead>ФИО</TableHead>
                 <TableHead>Возраст</TableHead>
                 <TableHead>Диагноз</TableHead>
+                <TableHead>Критические показатели</TableHead>
                 <TableHead>Действия</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {patients.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center">
+                  <TableCell colSpan={6} className="text-center">
                     Нет пациентов в вашей организации и городе
                   </TableCell>
                 </TableRow>
@@ -168,6 +219,19 @@ const PatientsPage = async () => {
                     </TableCell>
                     <TableCell>{patient.age}</TableCell>
                     <TableCell>{patient.diagnosis}</TableCell>
+                    <TableCell>
+                      {patient.alertMeasurements.length > 0 ? (
+                        <div className="text-sm">
+                          <span className="text-red-600 font-medium">
+                            {patient.alertMeasurements.join(", ")}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-gray-500 text-sm">
+                          Нет критических показателей
+                        </span>
+                      )}
+                    </TableCell>
                     <TableCell>
                       <Button variant="outline" size="sm" asChild>
                         <Link href={`/dashboard/patients/${patient.id}`}>

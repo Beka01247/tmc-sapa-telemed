@@ -172,7 +172,7 @@ export const MonitoringTab = ({
                         variant="outline"
                         onClick={() => setSelectedStatsItem(item)}
                       >
-                        Статистика
+                        Мониторинг
                       </Button>
                       {canSetCriticalValues && (
                         <CriticalValuesModal

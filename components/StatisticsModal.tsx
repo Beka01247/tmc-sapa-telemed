@@ -133,7 +133,7 @@ const StatisticsModal = ({
     <Dialog open={!!item} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[600px] bg-white text-black">
         <DialogHeader>
-          <DialogTitle>Статистика: {item.title}</DialogTitle>
+          <DialogTitle>Мониторинг: {item.title}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           <Line data={chartData} options={chartOptions} />

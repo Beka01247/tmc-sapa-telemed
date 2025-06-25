@@ -36,6 +36,7 @@ const doctorNavItems: NavItem[] = [
   { title: "Мониторинг", href: "/dashboard/patients" },
   { title: "Обследование", href: "/examination" },
   { title: "Статистика", href: "/statistics" },
+  { title: "Приемы", href: "/appointments" },
 ];
 
 const nurseNavItems: NavItem[] = [

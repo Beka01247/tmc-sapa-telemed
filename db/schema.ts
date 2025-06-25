@@ -263,6 +263,9 @@ export const receptions = pgTable("receptions", {
   patientId: uuid("patient_id")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
+  providerId: uuid("provider_id").references(() => users.id, {
+    onDelete: "set null",
+  }),
   anamnesis: text("anamnesis").notNull(),
   complaints: text("complaints").notNull(),
   objectiveStatus: text("objective_status").notNull(),

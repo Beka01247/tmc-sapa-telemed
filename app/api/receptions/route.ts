@@ -4,6 +4,7 @@ import { db } from "@/db/drizzle";
 import { receptions } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/auth";
 
 export async function GET(request: NextRequest) {
   const patientId = request.nextUrl.searchParams.get("patientId");
@@ -43,10 +44,17 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    // Get session to add providerId
+    const session = await auth();
+    if (!session?.user?.id) {
+      return new NextResponse("Unauthorized", { status: 401 });
+    }
+
     const result = await db
       .insert(receptions)
       .values({
         ...data,
+        providerId: session.user.id,
         createdAt: new Date(),
       })
       .returning();

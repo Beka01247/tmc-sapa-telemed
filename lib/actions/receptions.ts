@@ -3,6 +3,7 @@
 import { db } from "@/db/drizzle";
 import { receptions } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { auth } from "@/auth";
 
 const formatDate = (date: Date | string | null): string => {
   if (!date) return new Date().toISOString();
@@ -19,10 +20,17 @@ export async function createReception(data: {
   treatment: string;
 }) {
   try {
+    // Get current session to add providerId
+    const session = await auth();
+    if (!session?.user?.id) {
+      throw new Error("User not authenticated");
+    }
+
     const result = await db
       .insert(receptions)
       .values({
         ...data,
+        providerId: session.user.id,
         createdAt: new Date(),
       })
       .returning();

@@ -98,7 +98,7 @@ const CriticalValuesModal = ({
       });
 
       if (!response.ok) {
-        throw new Error("Не удалось сохранить критические значения");
+        throw new Error("Не удалось сохранить пределы");
       }
 
       setOpen(false);
@@ -114,7 +114,7 @@ const CriticalValuesModal = ({
       onSave?.();
     } catch (error) {
       console.error("Error saving critical values:", error);
-      alert("Ошибка при сохранении критических значений");
+      alert("Ошибка при сохранении предела");
     } finally {
       setLoading(false);
     }
@@ -151,15 +151,13 @@ const CriticalValuesModal = ({
     >
       <DialogTrigger asChild>
         <Button variant="outline" size="sm">
-          {measurementTitle
-            ? "Критические значения"
-            : "Установить критические значения"}
+          {measurementTitle ? "Пределы" : "Установить пределы"}
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>
-            Критические значения
+            Пределы
             {measurementTitle && ` - ${measurementTitle}`}
           </DialogTitle>
         </DialogHeader>

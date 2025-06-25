@@ -180,7 +180,7 @@ const PatientsPage = async () => {
                 <TableHead>ФИО</TableHead>
                 <TableHead>Возраст</TableHead>
                 <TableHead>Диагноз</TableHead>
-                <TableHead>Критические показатели</TableHead>
+                <TableHead>Пределы</TableHead>
                 <TableHead>Действия</TableHead>
               </TableRow>
             </TableHeader>
@@ -227,9 +227,7 @@ const PatientsPage = async () => {
                           </span>
                         </div>
                       ) : (
-                        <span className="text-gray-500 text-sm">
-                          Нет критических показателей
-                        </span>
+                        <span className="text-gray-500 text-sm">Нет</span>
                       )}
                     </TableCell>
                     <TableCell>

@@ -136,7 +136,7 @@ export const MonitoringTab = ({
                     {isAlert && (
                       <div className="mb-3 p-2 bg-red-100 border border-red-300 rounded-md">
                         <p className="text-sm text-red-800 font-medium">
-                          ⚠️ Критическое значение!
+                          ⚠️ Предел!
                           {alertsCount > 1 && (
                             <span className="ml-1 text-xs">
                               ({alertsCount} предупреждений)

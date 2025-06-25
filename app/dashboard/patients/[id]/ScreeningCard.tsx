@@ -197,9 +197,9 @@ export const ScreeningCard = ({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Скрининги и анализы</CardTitle>
+        <CardTitle>Скрининги</CardTitle>
         <CardDescription>
-          Запланированные и пройденные скрининги и анализы
+          Запланированные и пройденные скрининги
         </CardDescription>
       </CardHeader>
       <CardContent>

@@ -18,6 +18,7 @@ export async function createReception(data: {
   diagnosis: string;
   examinations: string;
   treatment: string;
+  recommendations: string;
 }) {
   try {
     // Get current session to add providerId
@@ -63,6 +64,7 @@ export async function updateReception(
     diagnosis: string;
     examinations: string;
     treatment: string;
+    recommendations: string;
   }
 ) {
   try {

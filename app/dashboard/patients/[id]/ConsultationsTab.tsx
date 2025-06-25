@@ -31,6 +31,7 @@ interface Reception {
   diagnosis: string;
   examinations: string;
   treatment: string;
+  recommendations: string;
   createdAt: string;
 }
 
@@ -201,6 +202,10 @@ export const ConsultationsTab = ({
               <div>
                 <h4 className="font-medium mb-2">Лечение:</h4>
                 <p className="text-sm">{viewingReception.treatment}</p>
+              </div>
+              <div>
+                <h4 className="font-medium mb-2">Рекомендации:</h4>
+                <p className="text-sm">{viewingReception.recommendations}</p>
               </div>
             </div>
           </DialogContent>

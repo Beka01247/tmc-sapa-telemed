@@ -36,6 +36,7 @@ interface Reception {
   diagnosis: string;
   examinations: string;
   treatment: string;
+  recommendations: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -248,6 +249,12 @@ const AppointmentsPage = () => {
                     {viewingReception.treatment}
                   </p>
                 </div>
+                <div>
+                  <h4 className="font-medium mb-2">Рекомендации:</h4>
+                  <p className="text-sm bg-gray-50 p-3 rounded">
+                    {viewingReception.recommendations}
+                  </p>
+                </div>
               </div>
             </DialogContent>
           </Dialog>
@@ -271,6 +278,7 @@ const AppointmentsPage = () => {
               diagnosis: editingReception.diagnosis,
               examinations: editingReception.examinations,
               treatment: editingReception.treatment,
+              recommendations: editingReception.recommendations,
             }}
             onSuccess={onReceptionChange}
           />

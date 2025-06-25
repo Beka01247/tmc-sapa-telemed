@@ -36,6 +36,7 @@ interface NewReceptionDialogProps {
     diagnosis: string;
     examinations: string;
     treatment: string;
+    recommendations: string;
   };
   onSuccess?: () => void;
   trigger?: React.ReactNode;
@@ -48,6 +49,7 @@ const fieldLabels: Record<string, string> = {
   diagnosis: "Диагноз",
   examinations: "Обследования",
   treatment: "Лечение",
+  recommendations: "Рекомендации",
 };
 
 const NewReceptionDialog: React.FC<NewReceptionDialogProps> = ({
@@ -70,6 +72,7 @@ const NewReceptionDialog: React.FC<NewReceptionDialogProps> = ({
       diagnosis: "",
       examinations: "",
       treatment: "",
+      recommendations: "",
     }
   );
 

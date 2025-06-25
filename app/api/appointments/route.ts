@@ -26,6 +26,7 @@ export async function GET() {
         diagnosis: receptions.diagnosis,
         examinations: receptions.examinations,
         treatment: receptions.treatment,
+        recommendations: receptions.recommendations,
         createdAt: receptions.createdAt,
         updatedAt: receptions.updatedAt,
       })

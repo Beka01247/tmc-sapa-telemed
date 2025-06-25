@@ -272,6 +272,7 @@ export const receptions = pgTable("receptions", {
   diagnosis: text("diagnosis").notNull(),
   examinations: text("examinations").notNull(),
   treatment: text("treatment").notNull(),
+  recommendations: text("recommendations").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });

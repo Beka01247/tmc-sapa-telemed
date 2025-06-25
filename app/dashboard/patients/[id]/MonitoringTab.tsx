@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import StatisticsModal from "@/components/StatisticsModal";
 import CriticalValuesModal from "@/components/CriticalValuesModal";
 import { monitoringItems } from "@/components/MonitoringPage";
+import { BluetoothIcon } from "@/components/ui/bluetooth-icon";
 
 interface Measurement {
   id: string;
@@ -122,14 +123,21 @@ export const MonitoringTab = ({
               const activeAlert = getActiveAlert(item.id);
               const alertsCount = getActiveAlertsCount(item.id);
               const isAlert = !!activeAlert;
+              const hasBluetoothSupport =
+                item.id === "blood-pressure" || item.id === "pulse";
               return (
                 <Card
                   key={item.id}
                   className={isAlert ? "border-red-500 bg-red-50" : ""}
                 >
                   <CardHeader>
-                    <CardTitle className={isAlert ? "text-red-700" : ""}>
-                      {item.title}
+                    <CardTitle
+                      className={`flex items-center justify-between ${isAlert ? "text-red-700" : ""}`}
+                    >
+                      <span>{item.title}</span>
+                      {hasBluetoothSupport && (
+                        <BluetoothIcon size={20} className="text-blue-500" />
+                      )}
                     </CardTitle>
                   </CardHeader>
                   <CardContent>

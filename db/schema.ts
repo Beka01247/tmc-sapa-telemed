@@ -309,10 +309,5 @@ export const patientAlerts = pgTable("patient_alerts", {
     { onDelete: "cascade" }
   ),
   message: text("message"),
-  acknowledged: boolean("acknowledged").default(false),
-  acknowledgedBy: uuid("acknowledged_by").references(() => users.id, {
-    onDelete: "set null",
-  }),
-  acknowledgedAt: timestamp("acknowledged_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 });

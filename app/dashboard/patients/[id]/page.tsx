@@ -2,7 +2,7 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { PatientDetailsClient } from "./PatientDetailsClient";
 import { db } from "@/db/drizzle";
-import { eq } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 import { format } from "date-fns";
 import { UserType } from "@/constants/userTypes";
 import {
@@ -174,6 +174,7 @@ async function fetchPatientData(patientId: string) {
     })
     .from(measurements)
     .where(eq(measurements.userId, patientId))
+    .orderBy(desc(measurements.createdAt))
     .then((data) =>
       data.map((measurement) => ({
         ...measurement,

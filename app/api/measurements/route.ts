@@ -1,13 +1,24 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db/drizzle";
-import {
-  measurements,
-  criticalValues,
-  patientAlerts,
-  measurementTypeEnum,
-} from "@/db/schema";
+import { measurements, criticalValues, patientAlerts } from "@/db/schema";
 import { auth } from "@/auth";
 import { eq, desc, and } from "drizzle-orm";
+
+type MeasurementType =
+  | "blood-pressure"
+  | "pulse"
+  | "temperature"
+  | "glucose"
+  | "oximeter"
+  | "spirometer"
+  | "cholesterol"
+  | "hemoglobin"
+  | "triglycerides"
+  | "weight"
+  | "height"
+  | "ultrasound"
+  | "xray"
+  | "inr";
 
 // Helper function to translate measurement types to Russian
 function getMeasurementTypeInRussian(measurementType: string): string {
@@ -31,8 +42,8 @@ function getMeasurementTypeInRussian(measurementType: string): string {
   return translations[measurementType] || measurementType;
 }
 
-// Helper function to check critical values and create alerts
-async function checkAndCreateAlert(
+// Helper function to check critical values and manage alerts
+async function checkAndUpdateAlerts(
   patientId: string,
   measurementId: string,
   measurementType: string,
@@ -40,6 +51,27 @@ async function checkAndCreateAlert(
   value2?: string
 ) {
   try {
+    // First, delete all existing alerts for this patient and measurement type
+    // We need to find measurements of this type for this patient and delete their alerts
+    const existingMeasurements = await db
+      .select({ id: measurements.id })
+      .from(measurements)
+      .where(
+        and(
+          eq(measurements.userId, patientId),
+          eq(measurements.type, measurementType as MeasurementType)
+        )
+      );
+
+    if (existingMeasurements.length > 0) {
+      const measurementIds = existingMeasurements.map((m) => m.id);
+      for (const id of measurementIds) {
+        await db
+          .delete(patientAlerts)
+          .where(eq(patientAlerts.measurementId, id));
+      }
+    }
+
     // Get critical values for this patient and measurement type
     const criticalValueData = await db
       .select()
@@ -47,24 +79,7 @@ async function checkAndCreateAlert(
       .where(
         and(
           eq(criticalValues.patientId, patientId),
-          eq(
-            criticalValues.measurementType,
-            measurementType as
-              | "blood-pressure"
-              | "pulse"
-              | "temperature"
-              | "glucose"
-              | "oximeter"
-              | "spirometer"
-              | "cholesterol"
-              | "hemoglobin"
-              | "triglycerides"
-              | "weight"
-              | "height"
-              | "ultrasound"
-              | "xray"
-              | "inr"
-          )
+          eq(criticalValues.measurementType, measurementType as MeasurementType)
         )
       );
 
@@ -121,7 +136,7 @@ async function checkAndCreateAlert(
       }
     }
 
-    // Create alert if critical
+    // Create alert only if critical
     if (alertStatus === "CRITICAL") {
       await db.insert(patientAlerts).values({
         patientId,
@@ -156,9 +171,9 @@ export const POST = async (req: Request) => {
       })
       .returning();
 
-    // Check for critical values and create alerts
+    // Check for critical values and update alerts
     const measurementId = newMeasurement[0].id;
-    await checkAndCreateAlert(
+    await checkAndUpdateAlerts(
       session.user.id,
       measurementId,
       type,

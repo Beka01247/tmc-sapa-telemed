@@ -22,7 +22,6 @@ interface Alert {
   measurementType: string;
   alertStatus: "NORMAL" | "WARNING" | "CRITICAL";
   message: string;
-  acknowledged: boolean;
   createdAt: string;
 }
 
@@ -62,49 +61,17 @@ export const MonitoringTab = ({
 
   const canSetCriticalValues = userType === "DOCTOR" || userType === "NURSE";
 
-  const handleAcknowledgeAlert = async (measurementType: string) => {
-    try {
-      const response = await fetch("/api/patient-alerts", {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          patientId: patientId,
-          measurementType: measurementType,
-        }),
-      });
-
-      if (response.ok) {
-        // Refresh alerts after acknowledging
-        const alertsResponse = await fetch(
-          `/api/patient-alerts?patientId=${patientId}`
-        );
-        if (alertsResponse.ok) {
-          const alertsData = await alertsResponse.json();
-          setAlerts(alertsData);
-        }
-      }
-    } catch (error) {
-      console.error("Error acknowledging alert:", error);
-    }
-  };
-
   const getActiveAlert = (itemId: string) => {
     return alerts.find(
       (alert) =>
-        alert.measurementType === itemId &&
-        alert.alertStatus === "CRITICAL" &&
-        !alert.acknowledged
+        alert.measurementType === itemId && alert.alertStatus === "CRITICAL"
     );
   };
 
   const getActiveAlertsCount = (itemId: string) => {
     return alerts.filter(
       (alert) =>
-        alert.measurementType === itemId &&
-        alert.alertStatus === "CRITICAL" &&
-        !alert.acknowledged
+        alert.measurementType === itemId && alert.alertStatus === "CRITICAL"
     ).length;
   };
 
@@ -117,9 +84,14 @@ export const MonitoringTab = ({
         <CardContent>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {monitoringItems.map((item) => {
-              const latestMeasurement = measurements.find(
-                (m) => m.type === item.id
-              );
+              // Find the latest measurement for this type by sorting by createdAt desc
+              const latestMeasurement = measurements
+                .filter((m) => m.type === item.id)
+                .sort(
+                  (a, b) =>
+                    new Date(b.createdAt).getTime() -
+                    new Date(a.createdAt).getTime()
+                )[0];
               const activeAlert = getActiveAlert(item.id);
               const alertsCount = getActiveAlertsCount(item.id);
               const isAlert = !!activeAlert;
@@ -207,18 +179,6 @@ export const MonitoringTab = ({
                         />
                       )}
                     </div>
-                    {isAlert && canSetCriticalValues && activeAlert && (
-                      <div className="mt-2">
-                        <Button
-                          variant="outline"
-                          className="border-red-500 text-red-700 hover:bg-red-50 w-full"
-                          onClick={() => handleAcknowledgeAlert(item.id)}
-                        >
-                          Ознакомлен{" "}
-                          {alertsCount > 1 ? `со всеми (${alertsCount})` : ""}
-                        </Button>
-                      </div>
-                    )}
                   </CardContent>
                 </Card>
               );

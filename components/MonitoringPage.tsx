@@ -30,7 +30,6 @@ interface Alert {
   measurementType: string;
   alertStatus: "NORMAL" | "WARNING" | "CRITICAL";
   message: string;
-  acknowledged: boolean;
   createdAt: string;
 }
 
@@ -279,7 +278,14 @@ const MonitoringPage = ({ session }: MonitoringPageProps) => {
   };
 
   const getLatestMeasurement = (itemId: string) => {
-    const measurement = measurements.find((m) => m.type === itemId);
+    // Find the latest measurement for this type by sorting by createdAt desc
+    const measurement = measurements
+      .filter((m) => m.type === itemId)
+      .sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      )[0];
+
     if (!measurement) {
       return {
         value: monitoringItems.find((i) => i.id === itemId)?.defaultValue,
@@ -298,9 +304,7 @@ const MonitoringPage = ({ session }: MonitoringPageProps) => {
   const hasActiveAlert = (itemId: string) => {
     return alerts.some(
       (alert) =>
-        alert.measurementType === itemId &&
-        alert.alertStatus === "CRITICAL" &&
-        !alert.acknowledged
+        alert.measurementType === itemId && alert.alertStatus === "CRITICAL"
     );
   };
 

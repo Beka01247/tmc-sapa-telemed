@@ -45,7 +45,7 @@ interface Patient {
   age: number;
   diagnosis: string | null;
   alertStatus: "NORMAL" | "CRITICAL";
-  unacknowledgedAlerts: number;
+  activeAlerts: number;
   alertMeasurements: string[];
 }
 
@@ -109,7 +109,6 @@ const PatientsPage = async () => {
           .select({
             measurementType: measurements.type,
             alertStatus: patientAlerts.alertStatus,
-            acknowledged: patientAlerts.acknowledged,
           })
           .from(patientAlerts)
           .leftJoin(
@@ -119,8 +118,7 @@ const PatientsPage = async () => {
           .where(
             and(
               eq(patientAlerts.patientId, record.id),
-              eq(patientAlerts.alertStatus, "CRITICAL"),
-              eq(patientAlerts.acknowledged, false)
+              eq(patientAlerts.alertStatus, "CRITICAL")
             )
           );
 
@@ -142,7 +140,7 @@ const PatientsPage = async () => {
           diagnosis: (record.diagnoses as string) || "Нет диагнозов",
           alertStatus:
             criticalAlerts > 0 ? ("CRITICAL" as const) : ("NORMAL" as const),
-          unacknowledgedAlerts: criticalAlerts,
+          activeAlerts: criticalAlerts,
           alertMeasurements,
         };
       })

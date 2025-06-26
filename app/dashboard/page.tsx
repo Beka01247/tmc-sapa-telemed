@@ -10,6 +10,8 @@ import {
   patientScreenings,
   screenings,
   patientVaccinations,
+  riskGroups,
+  diagnoses,
 } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { format, parse } from "date-fns";
@@ -23,6 +25,18 @@ interface MedicalActivity {
   doctor: string;
   status: string;
   notes?: string | null;
+}
+
+interface RiskGroup {
+  id: string;
+  name: string;
+  createdAt: string;
+}
+
+interface Diagnosis {
+  id: string;
+  description: string;
+  createdAt: string;
 }
 
 interface UserInfo {
@@ -44,6 +58,8 @@ interface UserInfo {
   gender: "МУЖСКОЙ" | "ЖЕНСКИЙ" | "ДРУГОЙ" | null;
   createdAt: string;
   updatedAt: string;
+  riskGroups: RiskGroup[];
+  diagnoses: Diagnosis[];
 }
 
 async function fetchUserInfo(userId: string): Promise<UserInfo | null> {
@@ -75,8 +91,29 @@ async function fetchUserInfo(userId: string): Promise<UserInfo | null> {
 
     if (!user) return null;
 
+    // Fetch risk groups for the user
+    const userRiskGroups = await db
+      .select({
+        id: riskGroups.id,
+        name: riskGroups.name,
+        createdAt: riskGroups.createdAt,
+      })
+      .from(riskGroups)
+      .where(eq(riskGroups.userId, userId));
+
+    // Fetch diagnoses for the user
+    const userDiagnoses = await db
+      .select({
+        id: diagnoses.id,
+        description: diagnoses.description,
+        createdAt: diagnoses.createdAt,
+      })
+      .from(diagnoses)
+      .where(eq(diagnoses.userId, userId));
+
     return {
       ...user,
+      userType: user.userType || "PATIENT",
       dateOfBirth: user.dateOfBirth
         ? new Date(user.dateOfBirth).toLocaleDateString("ru-RU", {
             year: "numeric",
@@ -84,6 +121,16 @@ async function fetchUserInfo(userId: string): Promise<UserInfo | null> {
             day: "numeric",
           })
         : null,
+      createdAt: format(new Date(user.createdAt!), "dd.MM.yyyy"),
+      updatedAt: format(new Date(user.updatedAt!), "dd.MM.yyyy"),
+      riskGroups: userRiskGroups.map((rg) => ({
+        ...rg,
+        createdAt: format(new Date(rg.createdAt!), "dd.MM.yyyy"),
+      })),
+      diagnoses: userDiagnoses.map((d) => ({
+        ...d,
+        createdAt: format(new Date(d.createdAt!), "dd.MM.yyyy"),
+      })),
     };
   } catch (error) {
     console.error("Error fetching user info:", error);
@@ -217,7 +264,7 @@ const formatGender = (gender: string | null) => {
   }
 };
 
-const formatUserType = (userType: string) => {
+const formatUserType = (userType: string | null) => {
   switch (userType) {
     case "DOCTOR":
       return "Врач";
@@ -334,6 +381,57 @@ const DashboardPage = async () => {
                   {userInfo.specialization || "Не указано"}
                 </p>
               </>
+            )}
+
+            {/* Risk Groups Section - Only for Patients */}
+            {userInfo.userType === "PATIENT" && (
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <p className="font-semibold mb-2">Группы:</p>
+                {userInfo.riskGroups.length === 0 ? (
+                  <p className="text-gray-500 text-sm">
+                    Группы риска не назначены
+                  </p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {userInfo.riskGroups.map((group) => (
+                      <span
+                        key={group.id}
+                        className="inline-block px-3 py-1 bg-blue-100 text-blue-800 text-sm rounded-full"
+                      >
+                        {group.name}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Diagnoses Section - Only for Patients */}
+            {userInfo.userType === "PATIENT" && (
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <p className="font-semibold mb-2">Диагнозы:</p>
+                {userInfo.diagnoses.length === 0 ? (
+                  <p className="text-gray-500 text-sm">
+                    Диагнозы не установлены
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {userInfo.diagnoses.map((diagnosis) => (
+                      <div
+                        key={diagnosis.id}
+                        className="p-3 bg-gray-50 rounded-lg border"
+                      >
+                        <p className="text-sm font-medium">
+                          {diagnosis.description}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Дата: {diagnosis.createdAt}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             )}
           </CardContent>
         </Card>

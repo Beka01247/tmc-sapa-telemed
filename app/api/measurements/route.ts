@@ -193,8 +193,7 @@ export const GET = async () => {
       })
       .from(measurements)
       .where(eq(measurements.userId, session.user.id))
-      .orderBy(desc(measurements.createdAt))
-      .limit(14); // One per measurement type
+      .orderBy(desc(measurements.createdAt));
     return NextResponse.json(latestMeasurements, { status: 200 });
   } catch (error) {
     console.error("Error fetching measurements:", error);

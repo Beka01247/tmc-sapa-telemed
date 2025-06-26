@@ -64,13 +64,18 @@ const StatisticsModal = ({
     });
   };
 
+  // Sort measurements by date (oldest first) to ensure proper x-axis order
+  const sortedMeasurements = [...measurements].sort(
+    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+  );
+
   // Prepare chart data
   const chartData = {
-    labels: measurements.map((m) => formatDate(m.createdAt)),
+    labels: sortedMeasurements.map((m) => formatDate(m.createdAt)),
     datasets: [
       {
         label: item.inputType === "double" ? "Значение 1" : "Значение",
-        data: measurements.map((m) => parseFloat(m.value1) || 0),
+        data: sortedMeasurements.map((m) => parseFloat(m.value1) || 0),
         borderColor: "rgb(75, 192, 192)",
         backgroundColor: "rgba(75, 192, 192, 0.2)",
         tension: 0.1,
@@ -79,7 +84,9 @@ const StatisticsModal = ({
         ? [
             {
               label: "Значение 2",
-              data: measurements.map((m) => parseFloat(m.value2 || "0") || 0),
+              data: sortedMeasurements.map(
+                (m) => parseFloat(m.value2 || "0") || 0
+              ),
               borderColor: "rgb(255, 99, 132)",
               backgroundColor: "rgba(255, 99, 132, 0.2)",
               tension: 0.1,
@@ -144,7 +151,7 @@ const StatisticsModal = ({
                 <p className="text-gray-400">Нет данных</p>
               ) : (
                 <ul className="space-y-2">
-                  {measurements.map((m) => (
+                  {sortedMeasurements.map((m) => (
                     <li key={m.id} className="text-sm">
                       {formatDate(m.createdAt)}: {m.value1}
                       {item.inputType === "double" &&

@@ -9,6 +9,7 @@ import {
   integer,
   boolean,
   decimal,
+  time,
 } from "drizzle-orm/pg-core";
 
 export const genderEnum = pgEnum("gender", ["МУЖСКОЙ", "ЖЕНСКИЙ", "ЖЕНСКИЙ"]);
@@ -310,4 +311,29 @@ export const patientAlerts = pgTable("patient_alerts", {
   ),
   message: text("message"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
+
+export const treatmentTimes = pgTable("treatment_times", {
+  id: uuid("id").notNull().primaryKey().defaultRandom(),
+  treatmentId: uuid("treatment_id")
+    .notNull()
+    .references(() => treatments.id, { onDelete: "cascade" }),
+  timeOfDay: time("time_of_day").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
+
+export const treatmentLogs = pgTable("treatment_logs", {
+  id: uuid("id").notNull().primaryKey().defaultRandom(),
+  treatmentId: uuid("treatment_id")
+    .notNull()
+    .references(() => treatments.id, { onDelete: "cascade" }),
+  treatmentTimeId: uuid("treatment_time_id")
+    .notNull()
+    .references(() => treatmentTimes.id, { onDelete: "cascade" }),
+  logDate: date("log_date").notNull(),
+  takenAt: timestamp("taken_at", { withTimezone: true }),
+  isTaken: boolean("is_taken").default(false),
+  notes: text("notes"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });

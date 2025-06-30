@@ -1,5 +1,5 @@
 import { db } from "@/db/drizzle";
-import { treatments, users } from "@/db/schema";
+import { treatments, users, treatmentTimes } from "@/db/schema";
 import { auth } from "@/auth";
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -11,6 +11,13 @@ const treatmentSchema = z.object({
   frequency: z.string().min(1, "Частота обязательна"),
   duration: z.string().min(1, "Длительность обязательна"),
   notes: z.string().optional(),
+  times: z
+    .array(
+      z.object({
+        time: z.string().min(1, "Время обязательно"),
+      })
+    )
+    .min(1, "Добавьте хотя бы одно время приема"),
 });
 
 export const GET = async (
@@ -40,7 +47,7 @@ export const GET = async (
       return NextResponse.json({ error: "Пациент не найден" }, { status: 404 });
     }
 
-    // Fetch treatments with provider name
+    // Fetch treatments with provider name and times
     const treatmentsData = await db
       .select({
         id: treatments.id,
@@ -55,7 +62,25 @@ export const GET = async (
       .leftJoin(users, eq(treatments.providerId, users.id))
       .where(eq(treatments.patientId, params.id));
 
-    return NextResponse.json(treatmentsData);
+    // Fetch treatment times for each treatment
+    const treatmentsWithTimes = await Promise.all(
+      treatmentsData.map(async (treatment) => {
+        const times = await db
+          .select({
+            id: treatmentTimes.id,
+            timeOfDay: treatmentTimes.timeOfDay,
+          })
+          .from(treatmentTimes)
+          .where(eq(treatmentTimes.treatmentId, treatment.id));
+
+        return {
+          ...treatment,
+          times: times.map((t) => ({ id: t.id, time: t.timeOfDay })),
+        };
+      })
+    );
+
+    return NextResponse.json(treatmentsWithTimes);
   } catch (error) {
     console.error("GET /patients/[id]/treatments error:", error);
     return NextResponse.json(
@@ -114,14 +139,26 @@ export const POST = async (
       })
       .returning();
 
+    // Insert treatment times
+    if (validated.times && validated.times.length > 0) {
+      await db.insert(treatmentTimes).values(
+        validated.times.map((timeItem) => ({
+          treatmentId: newTreatment.id,
+          timeOfDay: timeItem.time,
+        }))
+      );
+    }
+
     return NextResponse.json(newTreatment);
   } catch (error) {
     console.error("POST /patients/[id]/treatments error:", error);
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.errors }, { status: 400 });
     }
+    const errorMessage =
+      error instanceof Error ? error.message : "Неизвестная ошибка";
     return NextResponse.json(
-      { error: "Не удалось создать лечение", details: error.message },
+      { error: "Не удалось создать лечение", details: errorMessage },
       { status: 500 }
     );
   }

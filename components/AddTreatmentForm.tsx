@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { useForm } from "react-hook-form";
+import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,6 +13,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import { useState } from "react";
 
 const formSchema = z.object({
   medication: z.string().min(1, "Медикамент обязателен"),
@@ -20,6 +21,13 @@ const formSchema = z.object({
   frequency: z.string().min(1, "Частота обязательна"),
   duration: z.string().min(1, "Длительность обязательна"),
   notes: z.string().optional(),
+  times: z
+    .array(
+      z.object({
+        time: z.string().min(1, "Время обязательно"),
+      })
+    )
+    .min(1, "Добавьте хотя бы одно время приема"),
 });
 
 interface AddTreatmentFormProps {
@@ -41,7 +49,13 @@ export const AddTreatmentForm = ({
       frequency: "",
       duration: "",
       notes: "",
+      times: [{ time: "" }],
     },
+  });
+
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: "times",
   });
 
   const { isSubmitting } = form.formState;
@@ -64,7 +78,11 @@ export const AddTreatmentForm = ({
       form.reset();
       onSuccess();
     } catch (error) {
-      toast.error(error.message || "Ошибка при добавлении лечения");
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Ошибка при добавлении лечения";
+      toast.error(errorMessage);
     }
   };
 
@@ -136,6 +154,51 @@ export const AddTreatmentForm = ({
             </FormItem>
           )}
         />
+
+        <div className="space-y-3">
+          <FormLabel>Время приема</FormLabel>
+          {fields.map((field, index) => (
+            <div key={field.id} className="flex items-center space-x-2">
+              <FormField
+                control={form.control}
+                name={`times.${index}.time`}
+                render={({ field }) => (
+                  <FormItem className="flex-1">
+                    <FormControl>
+                      <Input
+                        {...field}
+                        type="time"
+                        disabled={isSubmitting}
+                        placeholder="Выберите время"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              {fields.length > 1 && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => remove(index)}
+                  disabled={isSubmitting}
+                >
+                  Удалить
+                </Button>
+              )}
+            </div>
+          ))}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => append({ time: "" })}
+            disabled={isSubmitting}
+          >
+            Добавить время
+          </Button>
+        </div>
         <div className="flex justify-end space-x-2">
           <Button
             type="button"

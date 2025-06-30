@@ -12,10 +12,13 @@ import {
   patientVaccinations,
   riskGroups,
   diagnoses,
+  treatments,
+  treatmentTimes,
 } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { format, parse } from "date-fns";
 import { MedicalActivityCard } from "@/components/MedicalActivityCard";
+import { TreatmentCard } from "@/components/TreatmentCard";
 
 interface MedicalActivity {
   id: string;
@@ -36,6 +39,23 @@ interface RiskGroup {
 interface Diagnosis {
   id: string;
   description: string;
+  createdAt: string;
+}
+
+interface TreatmentTime {
+  id: string;
+  time: string;
+}
+
+interface Treatment {
+  id: string;
+  medication: string;
+  dosage: string;
+  frequency: string;
+  duration: string;
+  notes: string | null;
+  providerName: string | null;
+  times: TreatmentTime[];
   createdAt: string;
 }
 
@@ -250,6 +270,50 @@ async function fetchMedicalActivities(
   }
 }
 
+async function fetchPatientTreatments(patientId: string): Promise<Treatment[]> {
+  try {
+    // Fetch treatments with provider name
+    const treatmentsData = await db
+      .select({
+        id: treatments.id,
+        medication: treatments.medication,
+        dosage: treatments.dosage,
+        frequency: treatments.frequency,
+        duration: treatments.duration,
+        notes: treatments.notes,
+        providerName: users.fullName,
+        createdAt: treatments.createdAt,
+      })
+      .from(treatments)
+      .leftJoin(users, eq(treatments.providerId, users.id))
+      .where(eq(treatments.patientId, patientId));
+
+    // Fetch treatment times for each treatment
+    const treatmentsWithTimes = await Promise.all(
+      treatmentsData.map(async (treatment) => {
+        const times = await db
+          .select({
+            id: treatmentTimes.id,
+            timeOfDay: treatmentTimes.timeOfDay,
+          })
+          .from(treatmentTimes)
+          .where(eq(treatmentTimes.treatmentId, treatment.id));
+
+        return {
+          ...treatment,
+          times: times.map((t) => ({ id: t.id, time: t.timeOfDay })),
+          createdAt: format(new Date(treatment.createdAt!), "dd.MM.yyyy"),
+        };
+      })
+    );
+
+    return treatmentsWithTimes;
+  } catch (error) {
+    console.error("Error fetching patient treatments:", error);
+    return [];
+  }
+}
+
 // Helper functions for formatting user data
 const formatGender = (gender: string | null) => {
   switch (gender) {
@@ -300,6 +364,11 @@ const DashboardPage = async () => {
   const medicalActivities =
     userType === UserType.PATIENT
       ? await fetchMedicalActivities(session.user.id)
+      : [];
+
+  const patientTreatments =
+    userType === UserType.PATIENT
+      ? await fetchPatientTreatments(session.user.id)
       : [];
 
   if (!userInfo) {
@@ -437,17 +506,41 @@ const DashboardPage = async () => {
         </Card>
 
         {userInfo.userType === "PATIENT" && (
-          <div className="space-y-4">
-            <h3 className="text-2xl font-bold">Приглашения</h3>
-            {medicalActivities.length === 0 ? (
-              <p className="text-gray-500">Нет активных приглашений</p>
-            ) : (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {medicalActivities.map((activity) => (
-                  <MedicalActivityCard key={activity.id} activity={activity} />
-                ))}
-              </div>
-            )}
+          <div className="space-y-6">
+            {/* Treatments Section */}
+            <div className="space-y-4">
+              <h3 className="text-2xl font-bold">Лечения</h3>
+              {patientTreatments.length === 0 ? (
+                <p className="text-gray-500">Нет активных лечений</p>
+              ) : (
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {patientTreatments.map((treatment) => (
+                    <TreatmentCard
+                      key={treatment.id}
+                      treatment={treatment}
+                      patientId={session.user.id}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Invitations Section */}
+            <div className="space-y-4">
+              <h3 className="text-2xl font-bold">Приглашения</h3>
+              {medicalActivities.length === 0 ? (
+                <p className="text-gray-500">Нет активных приглашений</p>
+              ) : (
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {medicalActivities.map((activity) => (
+                    <MedicalActivityCard
+                      key={activity.id}
+                      activity={activity}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>

@@ -25,6 +25,13 @@ import { Button } from "@/components/ui/button";
 import { AddTreatmentForm } from "@/components/AddTreatmentForm";
 import { toast } from "sonner";
 
+import { Badge } from "@/components/ui/badge";
+
+interface TreatmentTime {
+  id: string;
+  time: string;
+}
+
 interface Treatment {
   id: string;
   medication: string;
@@ -33,6 +40,7 @@ interface Treatment {
   duration: string;
   notes: string | null;
   providerName: string | null;
+  times: TreatmentTime[];
 }
 
 interface TreatmentsTabProps {
@@ -92,6 +100,7 @@ export const TreatmentsTab = ({
                 <TableHead>Медикамент</TableHead>
                 <TableHead>Дозировка</TableHead>
                 <TableHead>Частота</TableHead>
+                <TableHead>Время приема</TableHead>
                 <TableHead>Длительность</TableHead>
                 <TableHead>Врач</TableHead>
                 <TableHead>Заметки</TableHead>
@@ -100,7 +109,7 @@ export const TreatmentsTab = ({
             <TableBody>
               {treatments.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center">
+                  <TableCell colSpan={7} className="text-center">
                     Нет данных
                   </TableCell>
                 </TableRow>
@@ -110,6 +119,15 @@ export const TreatmentsTab = ({
                     <TableCell>{treatment.medication}</TableCell>
                     <TableCell>{treatment.dosage}</TableCell>
                     <TableCell>{treatment.frequency}</TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1">
+                        {treatment.times?.map((time) => (
+                          <Badge key={time.id} variant="outline">
+                            {time.time}
+                          </Badge>
+                        )) || "Не указано"}
+                      </div>
+                    </TableCell>
                     <TableCell>{treatment.duration}</TableCell>
                     <TableCell>
                       {treatment.providerName || "Не указан"}

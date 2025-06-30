@@ -17,6 +17,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
@@ -24,8 +34,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { AddTreatmentForm } from "@/components/AddTreatmentForm";
 import { toast } from "sonner";
-
-import { Badge } from "@/components/ui/badge";
 
 interface TreatmentTime {
   id: string;
@@ -55,11 +63,48 @@ export const TreatmentsTab = ({
   patientId,
 }: TreatmentsTabProps) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [treatmentToDelete, setTreatmentToDelete] = useState<string | null>(
+    null
+  );
 
   const handleAddSuccess = async () => {
     setIsModalOpen(false);
     toast.success("Лечение добавлено");
     window.location.reload();
+  };
+
+  const handleDeleteTreatment = (treatmentId: string) => {
+    setTreatmentToDelete(treatmentId);
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!treatmentToDelete) return;
+
+    try {
+      const response = await fetch(
+        `/api/patients/${patientId}/treatments/${treatmentToDelete}`,
+        {
+          method: "DELETE",
+          credentials: "include",
+        }
+      );
+
+      if (response.ok) {
+        toast.success("Лечение успешно удалено");
+        setDeleteDialogOpen(false);
+        setTreatmentToDelete(null);
+        window.location.reload();
+      } else {
+        const error = await response.json();
+        throw new Error(error.error || "Не удалось удалить лечение");
+      }
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Ошибка при удалении лечения";
+      toast.error(errorMessage);
+    }
   };
 
   return (
@@ -100,16 +145,19 @@ export const TreatmentsTab = ({
                 <TableHead>Медикамент</TableHead>
                 <TableHead>Дозировка</TableHead>
                 <TableHead>Частота</TableHead>
-                <TableHead>Время приема</TableHead>
                 <TableHead>Длительность</TableHead>
                 <TableHead>Врач</TableHead>
                 <TableHead>Заметки</TableHead>
+                {isProvider && <TableHead>Действия</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
               {treatments.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center">
+                  <TableCell
+                    colSpan={isProvider ? 7 : 6}
+                    className="text-center"
+                  >
                     Нет данных
                   </TableCell>
                 </TableRow>
@@ -119,20 +167,43 @@ export const TreatmentsTab = ({
                     <TableCell>{treatment.medication}</TableCell>
                     <TableCell>{treatment.dosage}</TableCell>
                     <TableCell>{treatment.frequency}</TableCell>
-                    <TableCell>
-                      <div className="flex flex-wrap gap-1">
-                        {treatment.times?.map((time) => (
-                          <Badge key={time.id} variant="outline">
-                            {time.time}
-                          </Badge>
-                        )) || "Не указано"}
-                      </div>
-                    </TableCell>
                     <TableCell>{treatment.duration}</TableCell>
                     <TableCell>
                       {treatment.providerName || "Не указан"}
                     </TableCell>
                     <TableCell>{treatment.notes || "Нет"}</TableCell>
+                    {isProvider && (
+                      <TableCell>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() =>
+                                handleDeleteTreatment(treatment.id)
+                              }
+                              className="text-red-600 hover:text-red-800 hover:bg-red-50"
+                            >
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                className="h-4 w-4"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                />
+                              </svg>
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Удалить лечение</TooltipContent>
+                        </Tooltip>
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))
               )}
@@ -153,6 +224,29 @@ export const TreatmentsTab = ({
           />
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Удалить лечение?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Это действие нельзя отменить. Лечение и все связанные с ним записи
+              будут удалены навсегда.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setTreatmentToDelete(null)}>
+              Отмена
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Удалить
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 };

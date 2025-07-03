@@ -169,7 +169,7 @@ export const StatisticsClient = ({
                   className="text-center cursor-pointer hover:bg-muted transition-colors"
                   onClick={() => handleCellClick("blood-pressure", group)}
                 >
-                  <span className="text-blue-600 hover:text-blue-800 underline">
+                  <span className="text-black hover:text-gray-700">
                     {statistics.bloodPressure[group] || 0}
                   </span>
                 </TableCell>
@@ -183,7 +183,7 @@ export const StatisticsClient = ({
                   className="text-center cursor-pointer hover:bg-muted transition-colors"
                   onClick={() => handleCellClick("pulse", group)}
                 >
-                  <span className="text-blue-600 hover:text-blue-800 underline">
+                  <span className="text-black hover:text-gray-700">
                     {statistics.pulse[group] || 0}
                   </span>
                 </TableCell>

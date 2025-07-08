@@ -7,7 +7,20 @@ import {
   pregnancies,
   fertileWomenRegister,
 } from "@/db/schema";
-import { sql, and, gte, lte, eq } from "drizzle-orm";
+import { sql, and, gte, lte, eq, SQL } from "drizzle-orm";
+
+type MeasurementType =
+  | "blood-pressure"
+  | "pulse"
+  | "temperature"
+  | "glucose"
+  | "oximeter"
+  | "spirometer"
+  | "cholesterol"
+  | "hemoglobin"
+  | "triglycerides"
+  | "weight"
+  | "height";
 
 export async function GET(request: NextRequest) {
   try {
@@ -27,9 +40,11 @@ export async function GET(request: NextRequest) {
     }
 
     // Build date filter conditions
-    const dateConditions = [];
+    const dateConditions: SQL<unknown>[] = [];
     if (dateFrom) {
-      dateConditions.push(gte(measurements.createdAt, new Date(dateFrom)));
+      dateConditions.push(
+        gte(measurements.createdAt, new Date(dateFrom + "T00:00:00.000Z"))
+      );
     }
     if (dateTo) {
       dateConditions.push(
@@ -38,7 +53,7 @@ export async function GET(request: NextRequest) {
     }
 
     const whereConditions = [
-      eq(measurements.type, measurementType as "blood-pressure" | "pulse"),
+      eq(measurements.type, measurementType as MeasurementType),
       ...dateConditions,
     ];
 
@@ -50,30 +65,8 @@ export async function GET(request: NextRequest) {
       whereConditions.push(eq(users.city, city));
     }
 
-    // Add group-specific conditions
-    const additionalConditions = [];
-    if (group === "ПУЗ") {
-      additionalConditions.push(
-        sql`EXISTS(SELECT 1 FROM ${riskGroups} r WHERE r.user_id = ${users.id} AND r.name = 'ПУЗ')`
-      );
-    } else if (group === "ДН") {
-      additionalConditions.push(
-        sql`EXISTS(SELECT 1 FROM ${riskGroups} r WHERE r.user_id = ${users.id} AND r.name = 'ДН')`
-      );
-    } else if (group === "Беременные") {
-      additionalConditions.push(
-        sql`EXISTS(SELECT 1 FROM ${pregnancies} p WHERE p.user_id = ${users.id})`
-      );
-    } else if (group === "ЖВФ") {
-      additionalConditions.push(
-        sql`EXISTS(SELECT 1 FROM ${fertileWomenRegister} f WHERE f.user_id = ${users.id})`
-      );
-    }
-    // For "Все" group, no additional conditions needed
-
-    const allConditions = [...whereConditions, ...additionalConditions];
-
-    const usersData = await db
+    // First, get all users who have measurements matching the criteria
+    const baseQuery = db
       .select({
         id: users.id,
         fullName: users.fullName,
@@ -86,7 +79,7 @@ export async function GET(request: NextRequest) {
       })
       .from(measurements)
       .innerJoin(users, eq(measurements.userId, users.id))
-      .where(and(...allConditions))
+      .where(and(...whereConditions))
       .groupBy(
         users.id,
         users.fullName,
@@ -96,8 +89,107 @@ export async function GET(request: NextRequest) {
         users.gender,
         users.city,
         users.organization
-      )
-      .orderBy(users.fullName);
+      );
+
+    let usersData: {
+      id: string;
+      fullName: string | null;
+      email: string;
+      telephone: string | null;
+      dateOfBirth: string | null;
+      gender: string | null;
+      city: string;
+      organization: string;
+    }[];
+
+    if (group === "Все") {
+      // For "Все" group, get all users
+      usersData = await baseQuery.orderBy(users.fullName);
+    } else {
+      // For specific groups, we need to filter by group membership
+      const allUsers = await baseQuery.orderBy(users.fullName);
+      const userIds = allUsers.map((u) => u.id);
+
+      if (userIds.length === 0) {
+        usersData = [];
+      } else {
+        // Get group memberships
+        const pregnantUsers = await db
+          .select({ userId: pregnancies.userId })
+          .from(pregnancies)
+          .where(
+            sql`${pregnancies.userId} IN (${sql.join(
+              userIds.map((id) => sql`${id}`),
+              sql`, `
+            )})`
+          );
+
+        const fertileWomenUsers = await db
+          .select({ userId: fertileWomenRegister.userId })
+          .from(fertileWomenRegister)
+          .where(
+            sql`${fertileWomenRegister.userId} IN (${sql.join(
+              userIds.map((id) => sql`${id}`),
+              sql`, `
+            )})`
+          );
+
+        const riskGroupUsers = await db
+          .select({
+            userId: riskGroups.userId,
+            groupName: riskGroups.name,
+          })
+          .from(riskGroups)
+          .where(
+            sql`${riskGroups.userId} IN (${sql.join(
+              userIds.map((id) => sql`${id}`),
+              sql`, `
+            )})`
+          );
+
+        // Create maps for quick lookup
+        const pregnantSet = new Set(pregnantUsers.map((p) => p.userId));
+        const fertileWomenSet = new Set(fertileWomenUsers.map((f) => f.userId));
+        const riskGroupMap = new Map();
+
+        riskGroupUsers.forEach((rg) => {
+          if (!riskGroupMap.has(rg.userId)) {
+            riskGroupMap.set(rg.userId, []);
+          }
+          riskGroupMap.get(rg.userId).push(rg.groupName);
+        });
+
+        // Filter users by the requested group (users can belong to multiple groups)
+        usersData = allUsers.filter((user) => {
+          if (group === "Беременные") {
+            return pregnantSet.has(user.id);
+          } else if (group === "ЖВФ") {
+            return fertileWomenSet.has(user.id);
+          } else if (group === "ПУЗ") {
+            return (
+              riskGroupMap.has(user.id) &&
+              riskGroupMap.get(user.id).includes("ПУЗ")
+            );
+          } else if (group === "ДУ") {
+            return (
+              riskGroupMap.has(user.id) &&
+              riskGroupMap.get(user.id).includes("ДУ")
+            );
+          }
+
+          // For any other group or "Другие", check if user doesn't belong to any specific group
+          if (group === "Другие") {
+            return (
+              !pregnantSet.has(user.id) &&
+              !fertileWomenSet.has(user.id) &&
+              !riskGroupMap.has(user.id)
+            );
+          }
+
+          return false;
+        });
+      }
+    }
 
     return NextResponse.json({ users: usersData });
   } catch (error) {

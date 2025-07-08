@@ -28,6 +28,15 @@ import { StatisticsUsersModal } from "@/components/StatisticsUsersModal";
 interface MonitoringStatistics {
   bloodPressure: Record<string, number>;
   pulse: Record<string, number>;
+  temperature: Record<string, number>;
+  glucose: Record<string, number>;
+  oximeter: Record<string, number>;
+  spirometer: Record<string, number>;
+  cholesterol: Record<string, number>;
+  hemoglobin: Record<string, number>;
+  triglycerides: Record<string, number>;
+  weight: Record<string, number>;
+  height: Record<string, number>;
 }
 
 interface UserDetail {
@@ -99,7 +108,7 @@ export const StatisticsClient = ({
 
     // Convert measurement type to match the API response structure
     const apiMeasurementKey =
-      measurementType === "blood-pressure" ? "bloodPressure" : "pulse";
+      measurementType === "blood-pressure" ? "bloodPressure" : measurementType;
     const measurementData =
       statistics[apiMeasurementKey as keyof MonitoringStatistics];
 
@@ -145,7 +154,21 @@ export const StatisticsClient = ({
   const renderStatisticsTable = () => {
     if (!statistics) return null;
 
-    const groups = ["ПУЗ", "ДН", "Беременные", "ЖВФ", "Все"];
+    const groups = ["ПУЗ", "ДУ", "Беременные", "ЖВФ", "Все"];
+
+    const measurementTypeLabels = [
+      { key: "bloodPressure", label: "АД", apiKey: "blood-pressure" },
+      { key: "pulse", label: "Пульс", apiKey: "pulse" },
+      { key: "temperature", label: "Температура", apiKey: "temperature" },
+      { key: "glucose", label: "Глюкоза", apiKey: "glucose" },
+      { key: "oximeter", label: "Оксигенация", apiKey: "oximeter" },
+      { key: "spirometer", label: "Спирография", apiKey: "spirometer" },
+      { key: "cholesterol", label: "Холестерин", apiKey: "cholesterol" },
+      { key: "hemoglobin", label: "Гемоглобин", apiKey: "hemoglobin" },
+      { key: "triglycerides", label: "Триглицериды", apiKey: "triglycerides" },
+      { key: "weight", label: "Вес", apiKey: "weight" },
+      { key: "height", label: "Рост", apiKey: "height" },
+    ];
 
     return (
       <div className="rounded-md border">
@@ -161,34 +184,26 @@ export const StatisticsClient = ({
             </TableRow>
           </TableHeader>
           <TableBody>
-            <TableRow>
-              <TableCell className="font-medium">АД</TableCell>
-              {groups.map((group) => (
-                <TableCell
-                  key={group}
-                  className="text-center cursor-pointer hover:bg-muted transition-colors"
-                  onClick={() => handleCellClick("blood-pressure", group)}
-                >
-                  <span className="text-black hover:text-gray-700">
-                    {statistics.bloodPressure[group] || 0}
-                  </span>
+            {measurementTypeLabels.map((measurement) => (
+              <TableRow key={measurement.key}>
+                <TableCell className="font-medium">
+                  {measurement.label}
                 </TableCell>
-              ))}
-            </TableRow>
-            <TableRow>
-              <TableCell className="font-medium">Пульс</TableCell>
-              {groups.map((group) => (
-                <TableCell
-                  key={group}
-                  className="text-center cursor-pointer hover:bg-muted transition-colors"
-                  onClick={() => handleCellClick("pulse", group)}
-                >
-                  <span className="text-black hover:text-gray-700">
-                    {statistics.pulse[group] || 0}
-                  </span>
-                </TableCell>
-              ))}
-            </TableRow>
+                {groups.map((group) => (
+                  <TableCell
+                    key={group}
+                    className="text-center cursor-pointer hover:bg-muted transition-colors"
+                    onClick={() => handleCellClick(measurement.apiKey, group)}
+                  >
+                    <span className="text-black hover:text-gray-700">
+                      {statistics[
+                        measurement.key as keyof MonitoringStatistics
+                      ][group] || 0}
+                    </span>
+                  </TableCell>
+                ))}
+              </TableRow>
+            ))}
           </TableBody>
         </Table>
       </div>

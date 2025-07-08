@@ -7,7 +7,7 @@ import {
   pregnancies,
   fertileWomenRegister,
 } from "@/db/schema";
-import { sql, and, gte, lte, eq, SQL } from "drizzle-orm";
+import { sql, and, gte, lt, eq, SQL } from "drizzle-orm";
 
 type MeasurementType =
   | "blood-pressure"
@@ -42,14 +42,12 @@ export async function GET(request: NextRequest) {
     // Build date filter conditions
     const dateConditions: SQL<unknown>[] = [];
     if (dateFrom) {
-      dateConditions.push(
-        gte(measurements.createdAt, new Date(dateFrom + "T00:00:00.000Z"))
-      );
+      const fromDate = new Date(dateFrom + "T00:00:00.000Z");
+      dateConditions.push(gte(measurements.createdAt, fromDate));
     }
     if (dateTo) {
-      dateConditions.push(
-        lte(measurements.createdAt, new Date(dateTo + "T23:59:59.999Z"))
-      );
+      const toDate = new Date(dateTo + "T23:59:59.999Z");
+      dateConditions.push(lt(measurements.createdAt, toDate));
     }
 
     const whereConditions = [

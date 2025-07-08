@@ -80,9 +80,18 @@ export const StatisticsClient = ({
     setLoading(true);
     try {
       const params = new URLSearchParams();
-      if (dateFrom)
-        params.append("dateFrom", dateFrom.toISOString().split("T")[0]);
-      if (dateTo) params.append("dateTo", dateTo.toISOString().split("T")[0]);
+      if (dateFrom) {
+        const year = dateFrom.getFullYear();
+        const month = String(dateFrom.getMonth() + 1).padStart(2, "0");
+        const day = String(dateFrom.getDate()).padStart(2, "0");
+        params.append("dateFrom", `${year}-${month}-${day}`);
+      }
+      if (dateTo) {
+        const year = dateTo.getFullYear();
+        const month = String(dateTo.getMonth() + 1).padStart(2, "0");
+        const day = String(dateTo.getDate()).padStart(2, "0");
+        params.append("dateTo", `${year}-${month}-${day}`);
+      }
       params.append("organization", organization);
       params.append("city", city);
 
@@ -127,9 +136,18 @@ export const StatisticsClient = ({
       params.append("group", group);
       params.append("organization", organization);
       params.append("city", city);
-      if (dateFrom)
-        params.append("dateFrom", dateFrom.toISOString().split("T")[0]);
-      if (dateTo) params.append("dateTo", dateTo.toISOString().split("T")[0]);
+      if (dateFrom) {
+        const year = dateFrom.getFullYear();
+        const month = String(dateFrom.getMonth() + 1).padStart(2, "0");
+        const day = String(dateFrom.getDate()).padStart(2, "0");
+        params.append("dateFrom", `${year}-${month}-${day}`);
+      }
+      if (dateTo) {
+        const year = dateTo.getFullYear();
+        const month = String(dateTo.getMonth() + 1).padStart(2, "0");
+        const day = String(dateTo.getDate()).padStart(2, "0");
+        params.append("dateTo", `${year}-${month}-${day}`);
+      }
 
       const response = await fetch(
         `/api/statistics/users?${params.toString()}`

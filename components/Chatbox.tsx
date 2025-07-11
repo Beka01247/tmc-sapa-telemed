@@ -6,14 +6,14 @@ import { useChannel } from "ably/react";
 import type { Types } from "ably";
 
 type Message = {
-  connectionId: string;
-  data: string;
+  id: string;
+  message: string;
   sender: {
     id: string;
     name: string;
     role: "DOCTOR" | "NURSE" | "PATIENT";
   };
-  timestamp: number;
+  createdAt: string;
 };
 
 interface ChatBoxProps {
@@ -45,49 +45,67 @@ const ChatBox: FC<ChatBoxProps> = ({ patientId, currentUser }) => {
         timestamp: number;
       };
 
+      // Add message to local state for real-time display
+      const newMessage: Message = {
+        id: Date.now().toString(), // Temporary ID for real-time messages
+        message: messageData.text,
+        sender: messageData.sender,
+        createdAt: new Date().toISOString(),
+      };
+
       setMessages((prevMessages) => {
         const history = prevMessages.slice(-199);
-        return [
-          ...history,
-          {
-            connectionId: message.connectionId ?? "",
-            data: messageData.text,
-            sender: messageData.sender,
-            timestamp: messageData.timestamp,
-          },
-        ];
+        return [...history, newMessage];
       });
     }
   );
 
-  useEffect(() => {
-    const loadMessageHistory = async () => {
-      try {
-        const historicalMessages = await channel.history({ limit: 100 });
-        const messages = historicalMessages.items.map((msg) => ({
-          connectionId: msg.connectionId ?? "",
-          data: msg.data.text,
-          sender: msg.data.sender,
-          timestamp: msg.data.timestamp,
-        }));
-        setMessages(messages.reverse());
-      } catch (error) {
-        console.error("Ошибка при загрузке истории сообщений:", error);
+  // Load messages from database
+  const loadMessages = React.useCallback(async () => {
+    try {
+      const response = await fetch(`/api/chat?patientId=${patientId}`);
+      if (response.ok) {
+        const messages = await response.json();
+        setMessages(messages);
       }
-    };
+    } catch (error) {
+      console.error("Ошибка при загрузке сообщений:", error);
+    }
+  }, [patientId]);
 
-    loadMessageHistory();
-  }, [channel]);
+  useEffect(() => {
+    loadMessages();
+  }, [loadMessages]);
 
-  const sendChatMessage = (messageText: string) => {
-    channel.publish({
-      name: "chat-message",
-      data: {
-        text: messageText,
-        sender: currentUser,
-        timestamp: Date.now(),
-      },
-    });
+  const sendChatMessage = async (messageText: string) => {
+    try {
+      // Save to database first
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          patientId,
+          message: messageText,
+        }),
+      });
+
+      if (response.ok) {
+        // Send via Ably for real-time delivery
+        channel.publish({
+          name: "chat-message",
+          data: {
+            text: messageText,
+            sender: currentUser,
+            timestamp: Date.now(),
+          },
+        });
+      }
+    } catch (error) {
+      console.error("Ошибка при отправке сообщения:", error);
+    }
+
     setMessageText("");
     inputBox.current?.focus();
   };
@@ -105,11 +123,24 @@ const ChatBox: FC<ChatBoxProps> = ({ patientId, currentUser }) => {
     event.preventDefault();
   };
 
-  const formatTime = (timestamp: number) => {
-    return new Date(timestamp).toLocaleTimeString([], {
+  const formatTime = (dateString: string) => {
+    return new Date(dateString).toLocaleTimeString([], {
       hour: "2-digit",
       minute: "2-digit",
     });
+  };
+
+  const getRoleInRussian = (role: string) => {
+    switch (role.toUpperCase()) {
+      case "DOCTOR":
+        return "Доктор";
+      case "NURSE":
+        return "Медсестра";
+      case "PATIENT":
+        return "Пациент";
+      default:
+        return role;
+    }
   };
 
   const messages = receivedMessages.map((message, index) => {
@@ -122,15 +153,15 @@ const ChatBox: FC<ChatBoxProps> = ({ patientId, currentUser }) => {
 
     return (
       <div
-        key={index}
+        key={message.id || index}
         className={`flex flex-col ${isCurrentUser ? "items-end" : "items-start"} mb-4`}
       >
         <div className="flex items-center gap-2 mb-1">
           <span className="text-sm text-gray-600">
-            {message.sender.name} ({message.sender.role.toLowerCase()})
+            {message.sender.name} ({getRoleInRussian(message.sender.role)})
           </span>
           <span className="text-xs text-gray-400">
-            {formatTime(message.timestamp)}
+            {formatTime(message.createdAt)}
           </span>
         </div>
         <div
@@ -140,7 +171,7 @@ const ChatBox: FC<ChatBoxProps> = ({ patientId, currentUser }) => {
               : "mr-auto bg-gray-200 text-gray-800 rounded-bl-none"
           }`}
         >
-          {message.data}
+          {message.message}
         </div>
       </div>
     );
@@ -151,10 +182,11 @@ const ChatBox: FC<ChatBoxProps> = ({ patientId, currentUser }) => {
   }, [receivedMessages]);
 
   return (
-    <div className="flex flex-col h-[80vh] bg-white rounded-lg shadow-lg">
+    <div className="flex flex-col h-full bg-white rounded-lg shadow-lg">
       {/* Chat Messages Container */}
       <div className="flex-1 p-4 overflow-y-auto bg-gray-50">
         <div className="space-y-4">{messages}</div>
+        <div ref={messageEnd} />
       </div>
 
       {/* Text Input Area */}

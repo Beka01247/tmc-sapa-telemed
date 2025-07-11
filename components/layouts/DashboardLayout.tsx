@@ -49,7 +49,10 @@ const nurseNavItems: NavItem[] = [
 // Function to create patient nav items with chat link containing their ID
 const getPatientNavItems = (userId: string): NavItem[] => [
   { title: "Аккаунт", href: "/dashboard" },
-  { title: "Чат с медсестрой", href: `/chat?patientId=${userId}` },
+  {
+    title: "Чат с медсестрой",
+    href: userId ? `/chat?patientId=${userId}` : "/chat",
+  },
   { title: "Мониторинг состояния", href: "/dashboard/monitoring" },
   { title: "Лечение", href: "/dashboard/therapy" },
   { title: "Рекомендации", href: "/dashboard/recomendations" },
